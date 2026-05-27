@@ -226,10 +226,7 @@ class ServiceGenerator
                         throw \$e;
                     }
 
-                    throw ApigatorException::serverError(
-                        errorCode: 'DB_TRANSACTION_FAILED',
-                        context:   ['reason' => \$e->getMessage()],
-                    );
+                    throw ApigatorException::serverError();
                 }
             }
 
@@ -278,10 +275,7 @@ class ServiceGenerator
                         throw \$e;
                     }
 
-                    throw ApigatorException::serverError(
-                        errorCode: 'DB_TRANSACTION_FAILED',
-                        context:   ['reason' => \$e->getMessage()],
-                    );
+                    throw ApigatorException::serverError();
                 }
             }
 
