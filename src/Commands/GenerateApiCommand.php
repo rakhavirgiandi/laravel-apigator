@@ -9,6 +9,7 @@ use Illuminate\Support\Str;
 use Virgiandi\Apigator\Generators\ControllerGenerator;
 use Virgiandi\Apigator\Generators\ModelGenerator;
 use Virgiandi\Apigator\Generators\RouteGenerator;
+use Virgiandi\Apigator\Generators\ServiceGenerator;
 
 class GenerateApiCommand extends Command
 {
@@ -17,6 +18,7 @@ class GenerateApiCommand extends Command
                             {--connection= : Database connection to use (default: app default connection)}
                             {--generate= : Comma-separated list of what to generate: model,controller,route (default: all)}
                             {--controller-dir= : Custom controller directory (relative to app/)}
+                            {--service-dir= : Custom service directory (relative to app/)}
                             {--model-dir= : Custom model directory (relative to app/)}
                             {--force : Overwrite existing files}';
 
@@ -27,6 +29,7 @@ class GenerateApiCommand extends Command
      */
     protected const GENERATOR_MAP = [
         'model'      => ModelGenerator::class,
+        'service'    => ServiceGenerator::class,
         'controller' => ControllerGenerator::class,
         'route'      => RouteGenerator::class,
     ];
@@ -62,11 +65,14 @@ class GenerateApiCommand extends Command
         $modelDir = $this->option('model-dir')
             ?? config('apigator.model_directory', 'Models');
 
+        $serviceDir = $this->option('service-dir')
+            ?? config('apigator.service_directory', 'Services');
+
         if ($table === 'all') {
             return $this->generateAll($connection, $controllerDir, $modelDir, $generateTargets);
         }
 
-        return $this->generateForTable($table, $connection, $controllerDir, $modelDir, $generateTargets);
+        return $this->generateForTable($table, $connection, $controllerDir, $modelDir, $serviceDir, $generateTargets);
     }
 
     // -------------------------------------------------------------------------
@@ -117,6 +123,7 @@ class GenerateApiCommand extends Command
         string $connection,
         string $controllerDir,
         string $modelDir,
+        string $serviceDir,
         array  $generateTargets,
         bool   $quiet = false
     ): int {
@@ -128,6 +135,7 @@ class GenerateApiCommand extends Command
 
         $modelName      = Str::studly(Str::singular($table));
         $controllerName = "{$modelName}Controller";
+        $serviceName = "{$modelName}Service";
         $force          = $this->option('force');
 
         // 2. Check if already generated (only for files we actually intend to create)
@@ -137,6 +145,9 @@ class GenerateApiCommand extends Command
         }
         if (in_array('model', $generateTargets)) {
             $pathsToCheck[] = app_path(trim($modelDir, '/') . "/{$modelName}.php");
+        }
+        if (in_array('service', $generateTargets)) {
+            $pathsToCheck[] = app_path(trim($serviceDir, '/') . "/{$serviceName}.php");
         }
 
         $alreadyExists = !empty(array_filter($pathsToCheck, 'file_exists'));
@@ -161,14 +172,16 @@ class GenerateApiCommand extends Command
         }
 
         $context = [
-            'table'          => $table,
-            'connection'     => $connection,
-            'modelName'      => $modelName,
-            'controllerName' => $controllerName,
-            'controllerDir'  => $controllerDir,
-            'modelDir'       => $modelDir,
-            'columns'        => $columns,
-            'force'          => $force,
+            'table'           => $table,
+            'connection'      => $connection,
+            'modelName'       => $modelName,
+            'controllerName'  => $controllerName,
+            'controllerDir'   => $controllerDir,
+            'serviceName'     => $serviceName,
+            'serviceDir'      => $serviceDir,
+            'modelDir'        => $modelDir,
+            'columns'         => $columns,
+            'force'           => $force,
             'generateTargets' => $generateTargets,
         ];
 
