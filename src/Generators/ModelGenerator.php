@@ -165,7 +165,7 @@ PHP;
         }
 
         if (empty($casts)) {
-            return "    protected \$casts = [];\n";
+            return "    protected \$casts = [];";
         }
 
         $lines = [];
@@ -173,7 +173,7 @@ PHP;
             $lines[] = "        '{$col}' => '{$cast}',";
         }
 
-        return "    protected \$casts = [\n" . implode("\n", $lines) . "\n    ];\n";
+        return "    protected \$casts = [\n" . implode("\n", $lines) . "\n    ];";
     }
 
     protected function buildRules(array $columns, bool $isUpdate): string
