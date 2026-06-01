@@ -80,7 +80,7 @@ class {$controllerName} extends Controller
      */
     public function index(Request \$request): JsonResponse
     {
-        \$result = {$serviceName}::getList(\$request->all(), \$this->getAuthUser(\$request));
+        \$result = {$serviceName}::getList(\$request->all());
         return \$this->successResponse(\$result);
     }
 
@@ -100,7 +100,7 @@ class {$controllerName} extends Controller
      */
     public function show(Request \$request, mixed \$id): JsonResponse
     {
-        \$record = {$serviceName}::getById(\$id, \$request->all(), \$this->getAuthUser(\$request));
+        \$record = {$serviceName}::getById(\$id, \$request->all());
 
         return \$this->successResponse(\$record);
     }
@@ -188,21 +188,8 @@ class {$controllerName} extends Controller
      */
     public function datatable(Request \$request): JsonResponse
     {
-        \$result = {$serviceName}::getDatatable(\$request->all(), \$this->getAuthUser(\$request));
+        \$result = {$serviceName}::getDatatable(\$request->all());
         return response()->json(\$result);
-    }
-
-    // -------------------------------------------------------------------------
-    // Helpers
-    // -------------------------------------------------------------------------
-
-    /**
-     * Extract authenticated user data to pass to model methods.
-     */
-    protected function getAuthUser(Request \$request): array
-    {
-        \$user = \$request->user();
-        return \$user ? \$user->toArray() : [];
     }
 }
 PHP;

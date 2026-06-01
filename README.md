@@ -1,691 +1,904 @@
-# 🚀 Laravel Apigator
+# ⚡ Laravel Apigator
 
-Auto-generate production-ready CRUD APIs — Controller, Model, and Routes — straight from your database tables. Comes with DataTables support, dynamic query filtering, custom schema joins, and full SQL injection protection.
+<p>
+  <strong>Auto-generate production-ready CRUD APIs from your database tables — in seconds.</strong>
+</p>
 
----
-
-## Table of Contents
-
-1. [Requirements](#requirements)
-2. [Installation](#installation)
-3. [Quick Start](#quick-start)
-4. [Command Options](#command-options)
-5. [Generated Files](#generated-files)
-6. [API Endpoints](#api-endpoints)
-7. [Dynamic Query Filtering](#dynamic-query-filtering)
-8. [Eager Loading Relations](#eager-loading-relations)
-9. [Custom Schema (mapSchema)](#custom-schema-mapschema)
-10. [DataTables Integration](#datatables-integration)
-11. [Validation Rules](#validation-rules)
-12. [Configuration](#configuration)
-13. [Security](#security)
-14. [Advanced Usage](#advanced-usage)
-15. [File Structure](#file-structure)
+<p>
+  <img src="https://img.shields.io/badge/Laravel-10%20%7C%2011%20%7C%2012-FF2D20?style=flat-square&logo=laravel&logoColor=white" alt="Laravel">
+  <img src="https://img.shields.io/badge/PHP-8.1%2B-777BB4?style=flat-square&logo=php&logoColor=white" alt="PHP">
+  <img src="https://img.shields.io/badge/License-MIT-brightgreen?style=flat-square" alt="MIT License">
+  <img src="https://img.shields.io/badge/Packagist-rakhavirgiandi%2Flaravel--apigator-orange?style=flat-square&logo=composer" alt="Packagist">
+</p>
 
 ---
 
-## Requirements
+**Laravel Apigator** is a developer-experience-first package that reads your existing database schema and generates a full, working CRUD API stack: **Model**, **Service**, **Controller**, and **Routes** — all wired together and ready to use. No more boilerplate. No more copy-paste. Just run one command and your API is live.
 
-- PHP >= 8.1
-- Laravel >= 10.x
-- MySQL, MariaDB, PostgreSQL, SQLite, or SQL Server
+It also ships with a powerful runtime query engine that gives every generated endpoint free filtering, sorting, full-text search, pagination, eager loading, and DataTables server-side support — all through query parameters, with zero extra code.
 
 ---
 
-## Installation
+## 📖 Table of Contents
+
+- [✨ Features](#features)
+- [📋 Requirements](#requirements)
+- [📦 Installation](#installation)
+- [⚙️ Configuration](#configuration)
+- [🚀 Quick Start](#quick-start)
+- [🛠️ The `apigator:generate` Command](#the-apigatorgenerate-command)
+  - [📌 Generating a Single Table](#generating-a-single-table)
+  - [📌 Generating All Tables](#generating-all-tables)
+  - [📌 Selective Generation](#selective-generation)
+  - [📌 Custom Directories](#custom-directories)
+  - [📌 Multi-Database Connections](#multi-database-connections)
+  - [📌 Force Overwrite](#force-overwrite)
+- [📁 Generated Files](#generated-files)
+  - [🗃️ Model](#model)
+  - [🔧 Service](#service)
+  - [🎮 Controller](#controller)
+  - [🛣️ Routes](#routes)
+- [🔍 Runtime Query API](#runtime-query-api)
+  - [🔎 Filtering](#filtering)
+  - [🔀 Sorting](#sorting)
+  - [📄 Pagination](#pagination)
+  - [🔤 Full-Text Search](#full-text-search)
+  - [🔗 OR Groups](#or-groups)
+  - [📥 Eager Loading (Relations)](#eager-loading-relations)
+- [🗺️ Schema Customization (`mapSchema`)](#schema-customization-mapschema)
+  - [📝 Defining Fields](#defining-fields)
+  - [🔗 Adding JOINs](#adding-joins)
+  - [🛡️ Static WHERE Conditions](#static-where-conditions)
+  - [💾 Raw SQL Expressions](#raw-sql-expressions)
+- [📊 DataTables Integration](#datatables-integration)
+- [🔄 Model Revamping](#model-revamping)
+- [🚨 Exception Handling](#exception-handling)
+- [🧩 Traits Reference](#traits-reference)
+- [🗂️ Configuration Reference](#configuration-reference)
+- [📄 License](#license)
+
+---
+
+## ✨ Features
+
+- **One-command API generation** — generates Model, Service, Controller, and Routes from any database table
+- **Generate all tables at once** with `--table=all`, auto-skipping system tables
+- **Selective generation** — only generate what you need (`model`, `service`, `controller`, `route`)
+- **Smart validation rules** — auto-derived from column types with name-based heuristics (email, phone, uuid, slug, url, coordinates, and more)
+- **Automatic type casting** — `$casts` populated from database column types
+- **Soft Delete detection** — automatically adds `SoftDeletes` trait when a `deleted_at` column is present
+- **Rich runtime query API** — filter, sort, search, and paginate any endpoint with query parameters
+- **16 filter operators** — from `eq`/`neq` to `between`, `in`, `like`, `null`, `date_from`, and more
+- **Eager loading** — load Eloquent relations on-the-fly via `?with=relation1,relation2.nested`
+- **DataTables server-side** — every generated controller includes a `/resource_datatable` endpoint
+- **Schema customization** — define custom `SELECT` columns, `JOIN`s, and static `WHERE` conditions via `mapSchema()`
+- **Model Revamping** — surgically update an existing model's casts, rules, and schema when your table changes
+- **Multi-database connection support** — target any configured database connection
+- **SQL injection safe** — all column names are whitelisted and sanitized
+- **OpenAPI annotations** — controller methods pre-annotated for Swagger/L5-Swagger
+
+---
+
+## 📋 Requirements
+
+| Dependency | Version |
+|---|---|
+| PHP | `^8.1` |
+| Laravel | `^10.0`, `^11.0`, or `^12.0` |
+
+Supported databases: **MySQL**, **MariaDB**, **PostgreSQL**, **SQLite**, **SQL Server**.
+
+---
+
+## 📦 Installation
+
+Install the package via Composer:
 
 ```bash
 composer require rakhavirgiandi/laravel-apigator
 ```
 
-Publish the config file (optional):
+Laravel's auto-discovery will register the service provider automatically. No manual registration is required.
+
+Optionally, publish the configuration file:
 
 ```bash
 php artisan vendor:publish --tag=apigator-config
 ```
 
----
-
-## Quick Start
-
-```bash
-# Generate everything for a single table
-php artisan apigator:generate --table=products
-
-# Generate for all tables at once
-php artisan apigator:generate --table=all
-
-# Use a specific database connection
-php artisan apigator:generate --table=products --connection=mysql_secondary
-
-# Only generate specific parts
-php artisan apigator:generate --table=products --generate=model,controller
-
-# Custom output directories
-php artisan apigator:generate --table=products \
-    --controller-dir=Http/Controllers/API/V1 \
-    --model-dir=Models/API
-
-# Overwrite existing files
-php artisan apigator:generate --table=products --force
-```
+This creates `config/apigator.php` in your project, which you can customize to your liking.
 
 ---
 
-## Command Options
+## ⚙️ Configuration
 
-| Option | Description | Default |
-|---|---|---|
-| `--table=` | Table name, or `all` to generate for every table | *(required)* |
-| `--connection=` | Database connection to use | App default connection |
-| `--generate=` | Comma-separated list: `model`, `controller`, `route` | All three |
-| `--controller-dir=` | Controller directory (relative to `app/`) | `Http/Controllers/API` |
-| `--model-dir=` | Model directory (relative to `app/`) | `Models` |
-| `--force` | Overwrite existing files | `false` |
-
-### `--connection`
-
-Point the generator to any connection defined in `config/database.php`:
-
-```bash
-php artisan apigator:generate --table=orders --connection=pgsql
-php artisan apigator:generate --table=all    --connection=mysql_secondary
-```
-
-Connection resolution order: `--connection` → `config('apigator.connection')` → app default.
-
-> The generator validates the connection exists before running. An invalid connection name will exit early with a clear error.
-
-### `--generate`
-
-Pick exactly what gets created — useful when you only need to regenerate one part:
-
-```bash
-# Model only
-php artisan apigator:generate --table=products --generate=model
-
-# Model + controller, skip routes
-php artisan apigator:generate --table=products --generate=model,controller
-
-# Routes only (model and controller already exist)
-php artisan apigator:generate --table=products --generate=route --force
-```
-
-Valid values: `model`, `controller`, `route`. Order doesn't matter — files are always generated in the correct sequence (model → controller → route).
-
-### Safety Checks
-
-The generator automatically:
-
-- Verifies the table exists in the database before generating anything
-- Skips already-generated files (unless `--force` is passed)
-- Only checks file existence for the parts you're actually generating
-- Skips system tables (`migrations`, `sessions`, `cache`, etc.) when using `--table=all`
-
----
-
-## Generated Files
-
-For a table named `products`, the command produces:
-
-```
-app/
-  Models/
-    Product.php                 ← Eloquent model with ApiModelTrait
-  Http/Controllers/API/
-    ProductController.php       ← Thin controller, logic lives in the model
-routes/
-  api.php                       ← 6 routes appended inside the Apigator marker block
-```
-
-### Route Marker Block
-
-All generated routes are written inside a clearly marked area in your route file. This makes them easy to find and prevents duplication:
-
-```php
-// [APIGATOR_ENDPOINTS_START]
-
-// [APIGATOR_ENDPOINTS] products
-Route::get('/products',            [ProductController::class, 'index']);
-Route::get('/products/{id}',       [ProductController::class, 'show']);
-// ...
-
-// [APIGATOR_ENDPOINTS] orders
-Route::get('/orders',              [OrderController::class, 'index']);
-// ...
-
-// [APIGATOR_ENDPOINTS_END]
-```
-
-If the marker block doesn't exist yet, it is created at the end of the file automatically. New tables are always inserted just before `[APIGATOR_ENDPOINTS_END]`.
-
----
-
-## API Endpoints
-
-For a table `products` (model `Product`, slug `products`):
-
-| Method | URL | Description |
-|---|---|---|
-| `GET` | `/products` | Paginated list |
-| `GET` | `/products/{id}` | Single record by ID |
-| `POST` | `/products` | Create a record |
-| `PATCH` | `/products/{id}` | Partial update |
-| `DELETE` | `/products/{id}` | Delete a record |
-| `POST` | `/products_datatable` | DataTables server-side endpoint |
-
-### GET /products — List
-
-```
-GET /products?page=1&per_page=15
-```
-
-```json
-{
-    "success": true,
-    "message": "Success",
-    "data": {
-        "meta": {
-            "current_page": 1,
-            "per_page": 15,
-            "total_pages": 4,
-            "total_items": 48
-        },
-        "data": [...]
-    }
-}
-```
-
-### GET /products/{id} — Single Record
-
-```
-GET /products/5
-```
-
-Search by a custom column (must be a real column):
-
-```
-GET /products/ABC-001?column=code
-```
-
-### POST /products — Create
-
-```json
-{
-    "name": "Widget A",
-    "price": 29.99,
-    "category_id": 3
-}
-```
-
-Response `201`:
-
-```json
-{
-    "success": true,
-    "message": "Product created successfully.",
-    "data": { "id": 42, "name": "Widget A", ... }
-}
-```
-
-### PATCH /products/{id} — Partial Update
-
-Only send the fields you want to change:
-
-```json
-{ "price": 34.99 }
-```
-
-### DELETE /products/{id} — Delete
-
-If the model uses `SoftDeletes`, the record is soft-deleted instead of permanently removed.
-
----
-
-## Dynamic Query Filtering
-
-All `GET` list endpoints and the DataTables endpoint support rich query filtering via URL parameters. Every filter is **SQL-injection safe** — column names are whitelisted against the actual schema and sanitized before use.
-
-### Basic Equality
-
-```
-GET /products?status=active
-GET /products?category_id=3
-```
-
-### Operators
-
-Append `[operator]` to any column name:
-
-| Parameter | SQL Equivalent |
-|---|---|
-| `?col[eq]=val` | `col = val` |
-| `?col[neq]=val` | `col != val` |
-| `?col[gt]=val` | `col > val` |
-| `?col[gte]=val` | `col >= val` |
-| `?col[lt]=val` | `col < val` |
-| `?col[lte]=val` | `col <= val` |
-| `?col[like]=val` | `col LIKE %val%` |
-| `?col[starts]=val` | `col LIKE val%` |
-| `?col[ends]=val` | `col LIKE %val` |
-| `?col[in]=a,b,c` | `col IN (a, b, c)` |
-| `?col[not_in]=a,b,c` | `col NOT IN (a, b, c)` |
-| `?col[null]=1` | `col IS NULL` |
-| `?col[not_null]=1` | `col IS NOT NULL` |
-| `?col[between]=val1,val2` | `col BETWEEN val1 AND val2` |
-| `?col[date_from]=2024-01-01` | `DATE(col) >= 2024-01-01` |
-| `?col[date_to]=2024-12-31` | `DATE(col) <= 2024-12-31` |
-
-**Examples:**
-
-```
-GET /products?price[between]=10,100
-GET /products?created_at[date_from]=2024-01-01&created_at[date_to]=2024-12-31
-GET /products?name[like]=widget
-GET /products?status[in]=active,draft
-GET /products?deleted_at[null]=1
-```
-
-### OR Groups
-
-Combine conditions with OR using the `_or` parameter:
-
-```
-GET /products?_or[0][status][eq]=active&_or[1][featured][eq]=1
-```
-→ `WHERE (status = 'active') OR (featured = 1)`
-
-Mix OR and AND freely:
-
-```
-GET /products?category_id=3&_or[0][name][like]=widget&_or[1][name][like]=gadget
-```
-→ `WHERE category_id = 3 AND ((name LIKE '%widget%') OR (name LIKE '%gadget%'))`
-
-### Full-Text Search
-
-```
-GET /products?_search=blue widget
-```
-
-Searches across all `string`-type columns defined in `mapSchema`.
-
-### Sorting
-
-```
-GET /products?_sort=name              # ASC
-GET /products?_sort=-price            # DESC (prefix with -)
-GET /products?_sort=category_id,-price  # multi-column
-```
-
-### Pagination
-
-```
-GET /products?page=2&per_page=25
-```
-
----
-
-## Eager Loading Relations
-
-Any `GET` list or single-record endpoint supports eager loading Eloquent relations via the `with` query parameter. Relations are **validated before loading** — if the method doesn't exist or doesn't return an Eloquent `Relation`, it is silently skipped so typos never cause a fatal error.
-
-### Basic Usage
-
-```
-GET /products?with=category
-GET /products?with=user,role
-```
-
-### Nested Relations (dot notation)
-
-```
-GET /products?with=user.organization
-GET /products?with=user.organization.country
-GET /products?with=user.organization,role.permissions
-```
-
-Each segment of the dot-chain is validated against the corresponding model in sequence. If any segment is invalid, the **whole chain** is dropped — not just the bad segment.
-
-**Validation walk for `?with=user.organization.country`:**
-
-```
-user          → method_exists(Product, 'user')? ✅ → resolves to User model
-organization  → method_exists(User, 'organization')? ✅ → resolves to Organization model
-country       → method_exists(Organization, 'country')? ✅ → chain valid ✅
-```
-
-### Calling Directly from Code
-
-```php
-Product::getList([
-    'with' => 'user.organization,role',
-]);
-```
-
-### Supported Formats
-
-| Format | Example |
-|---|---|
-| Single relation | `?with=user` |
-| Multiple relations | `?with=user,role` |
-| Nested (dot notation) | `?with=user.organization` |
-| Multiple nested | `?with=user.organization,role.permissions` |
-
----
-
-## Custom Schema (mapSchema)
-
-The generated model includes a `mapSchema()` method where you define custom SELECT columns, JOIN definitions, and static WHERE conditions.
-
-### Example: Products with Category join and inventory calculation
-
-```php
-public static function mapSchema(array $params = [], array $user = []): array
-{
-    $model = new self;
-    $warehouseId = $params['warehouse_id'] ?? '';
-
-    return [
-        'field' => [
-            'id'            => ['column' => $model->table.'.id',         'alias' => 'id',           'type' => 'int'],
-            'code'          => ['column' => $model->table.'.code',        'alias' => 'code',          'type' => 'string'],
-            'name'          => ['column' => $model->table.'.name',        'alias' => 'name',          'type' => 'string'],
-            'category_id'   => ['column' => $model->table.'.category_id', 'alias' => 'category_id',   'type' => 'int'],
-            'category_name' => ['column' => 'cat.name',                   'alias' => 'category_name', 'type' => 'string'],
-            'qty_on_hand'   => [
-                'column' => 'COALESCE(inv.qty, 0)',
-                'alias'  => 'qty_on_hand',
-                'type'   => 'float',
-                'is_raw' => true,   // ← treated as a raw SQL expression
-            ],
-            'has_variants'  => [
-                'column' => "CASE WHEN EXISTS (SELECT 1 FROM product_variants pv WHERE pv.product_id = {$model->table}.id) THEN 1 ELSE 0 END",
-                'alias'  => 'has_variants',
-                'type'   => 'bool',
-                'is_raw' => true,
-            ],
-        ],
-        'join' => [
-            [
-                'table' => 'categories as cat',
-                'type'  => 'left',
-                'on'    => ['cat.id', '=', $model->table.'.category_id'],
-            ],
-            [
-                'table' => DB::raw("
-                    (
-                        SELECT product_id, SUM(
-                            CASE WHEN type = 'IN' THEN qty ELSE -qty END
-                        ) AS qty
-                        FROM inventory_movements
-                        WHERE deleted_at IS NULL
-                        " . ($warehouseId ? "AND warehouse_id = {$warehouseId}" : "") . "
-                        GROUP BY product_id
-                    ) as inv
-                "),
-                'type'  => 'left',
-                'on'    => ['inv.product_id', '=', $model->table.'.id'],
-            ],
-        ],
-        'where' => [
-            ['column' => $model->table.'.deleted_at', 'operator' => 'IS NULL', 'value' => null],
-        ],
-    ];
-}
-```
-
-### Field Definition Reference
-
-| Key | Type | Description |
-|---|---|---|
-| `column` | `string` | SQL column expression — `table.column` or a raw SQL expression |
-| `alias` | `string` | The key name returned in the response |
-| `type` | `string` | `string`, `int`, `float`, `bool`, `date`, `datetime`, `json` |
-| `is_raw` | `bool` | When `true`, the `column` value is used as raw SQL (not quoted) |
-
-### Dynamic Parameters in mapSchema
-
-`mapSchema` receives the full request `$params` array, so you can drive query logic from any request parameter:
-
-```php
-// ?warehouse_id=5 filters inventory per warehouse
-$warehouseId = $params['warehouse_id'] ?? '';
-```
-
----
-
-## DataTables Integration
-
-### JavaScript Setup (DataTables 1.x / 2.x)
-
-```javascript
-$('#table').DataTable({
-    processing: true,
-    serverSide: true,
-    ajax: {
-        url: '/api/products_datatable',
-        type: 'POST',
-        headers: {
-            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
-            'Authorization': 'Bearer ' + token,
-        },
-    },
-    columns: [
-        { data: 'id',     name: 'id' },
-        { data: 'name',   name: 'name' },
-        { data: 'price',  name: 'price' },
-        { data: 'status', name: 'status', searchable: false },
-    ],
-});
-```
-
-### Server Response Format
-
-```json
-{
-    "draw": 1,
-    "recordsTotal": 500,
-    "recordsFiltered": 48,
-    "data": [...]
-}
-```
-
-### Features
-
-- Global search (across all `searchable: true` columns)
-- Per-column search and multi-column sort
-- Pagination via `start` / `length`
-- Works with `mapSchema` joins and computed columns
-- Compatible with DataTables 1.x and 2.x
-
----
-
-## Validation Rules
-
-Validation rules are **auto-generated from the database schema** at generation time. They live in two static methods on the model:
-
-```php
-Product::createRules()   // Used by POST  — required fields are marked required
-Product::updateRules()   // Used by PATCH — all fields become optional
-```
-
-### Type → Rule Mapping
-
-| DB Type | Validation Rule |
-|---|---|
-| `int`, `int2`, `int4`, `int8`, `integer`, `bigint`, `smallint` | `integer` |
-| `decimal`, `numeric`, `float`, `double` | `numeric` |
-| `bool`, `boolean` | `boolean` |
-| `date` | `date` |
-| `datetime`, `timestamp` | `date` |
-| `time` | `date_format:H:i:s` |
-| `json`, `jsonb` | `json` |
-| Everything else | `string` |
-
-Non-nullable columns → `required`. Nullable columns → `nullable`.
-
-You can customize the rules directly in the model at any time:
-
-```php
-public static function createRules(): array
-{
-    return [
-        'name'   => ['required', 'string', 'max:255', 'unique:products,name'],
-        'email'  => ['required', 'email'],
-        'price'  => ['required', 'numeric', 'min:0'],
-        'status' => ['required', 'string', 'in:active,inactive,draft'],
-        'image'  => ['nullable', 'image', 'max:2048'],
-    ];
-}
-```
-
----
-
-## Configuration
-
-`config/apigator.php`:
+After publishing, open `config/apigator.php`:
 
 ```php
 return [
-    // Default database connection (falls back to app default if not set)
-    'connection' => null,
-
-    // Default controller directory (relative to app/)
+    // Directory for generated controllers (relative to app/)
     'controller_directory' => 'Http/Controllers/API',
 
-    // Default model directory (relative to app/)
+    // Directory for generated models (relative to app/)
     'model_directory' => 'Models',
 
-    // Default API route delimiter
+    // Directory for generated services (relative to app/)
+    'service_directory' => 'Services',
+
+    // Route URL segment delimiter: '_' → /my_resource, '-' → /my-resource
     'route_delimiter' => '_',
 
     // Route file where generated routes are appended
     'route_file' => 'routes/api.php',
 
-    // Default items per page
+    // Default items per page for paginated responses
     'default_per_page' => 10,
 
-    // Tables skipped when using --table=all
+    // Tables to skip when using --table=all
     'exclude_tables' => [
-        'migrations', 'password_resets', 'failed_jobs',
-        'personal_access_tokens', 'sessions', 'cache',
-        'cache_locks', 'jobs', 'job_batches',
+        'migrations',
+        'password_resets',
+        'password_reset_tokens',
+        'failed_jobs',
+        'personal_access_tokens',
+        'sessions',
+        'cache',
+        'cache_locks',
+        'jobs',
+        'job_batches',
     ],
 ];
 ```
 
-> **Note:** `route_middleware` has been removed. Apply middleware directly in your route file using Laravel's standard `Route::middleware(...)` wrapper around the Apigator marker block if needed.
+All settings can also be overridden at runtime via command-line options (see [Command Reference](#the-apigatorgenerate-command)).
 
 ---
 
-## Security
+## 🚀 Quick Start
 
-### SQL Injection Protection
+Suppose you have a `products` table. Run:
 
-Every dynamic parameter passes through a multi-layer defense:
+```bash
+php artisan apigator:generate --table=products
+```
 
-1. **Column whitelist** — column names are validated against `Schema::getColumnListing()`. Unknown columns are silently ignored.
-2. **Operator whitelist** — only operators in the `OPERATORS` constant are accepted. Unknown operators are silently ignored.
-3. **Column sanitization** — after whitelist check, column names are regex-sanitized to `[a-zA-Z0-9_.]` only.
-4. **LIKE escaping** — `%` and `_` in user values are escaped before being used in `LIKE` clauses.
-5. **Parameter binding** — all values go through PDO parameter binding; nothing is ever interpolated directly.
+That's it. Apigator will create:
 
-### Input Validation
+```
+app/
+├── Http/Controllers/API/ProductController.php
+├── Models/Product.php
+└── Services/ProductService.php
 
-- All `POST` and `PATCH` data is validated through Laravel's `Validator` before touching the database.
-- The `column` parameter in `GET /{slug}/{id}?column=X` is validated against `Schema::getColumnListing()`.
+routes/api.php  ← 6 routes appended automatically
+```
+
+Your API is now fully functional:
+
+| Method | Endpoint | Action |
+|---|---|---|
+| `GET` | `/products` | Paginated list |
+| `GET` | `/products/{id}` | Single record |
+| `POST` | `/products` | Create |
+| `PATCH` | `/products/{id}` | Update |
+| `DELETE` | `/products/{id}` | Delete |
+| `POST` | `/products_datatable` | DataTables server-side |
 
 ---
 
-## Advanced Usage
+## 🛠️ The `apigator:generate` Command
 
-### Using ApiModelTrait in Existing Models
+```
+php artisan apigator:generate [options]
+```
 
-Add the trait to any existing model without regenerating:
+### 📌 Generating a Single Table
+
+```bash
+php artisan apigator:generate --table=orders
+```
+
+Generates `Order`, `OrderService`, `OrderController`, and appends routes for the `orders` table.
+
+### 📌 Generating All Tables
+
+```bash
+php artisan apigator:generate --table=all
+```
+
+Iterates every table in the database, skipping the ones listed in `exclude_tables`. Reports generated vs. skipped at the end.
+
+### 📌 Selective Generation
+
+Use `--generate` to control which components are created. Accepts a comma-separated list of: `model`, `service`, `controller`, `route`.
+
+```bash
+# Only generate the model
+php artisan apigator:generate --table=invoices --generate=model
+
+# Generate model and service, but not controller or routes
+php artisan apigator:generate --table=invoices --generate=model,service
+
+# Generate everything except routes
+php artisan apigator:generate --table=invoices --generate=model,service,controller
+```
+
+> **Note:** The generator respects dependency order. Generating a `controller` requires the `service` file to already exist, and generating a `service` requires the `model` to exist.
+
+### 📌 Custom Directories
+
+Override the default output paths on a per-run basis:
+
+```bash
+php artisan apigator:generate \
+  --table=users \
+  --model-dir=Domain/Users/Models \
+  --service-dir=Domain/Users/Services \
+  --controller-dir=Http/Controllers/V1
+```
+
+Namespaces are derived automatically from the directory path (e.g. `Domain/Users/Models` → `App\Domain\Users\Models`).
+
+### 📌 Multi-Database Connections
+
+Target any connection defined in `config/database.php`:
+
+```bash
+php artisan apigator:generate --table=customers --connection=secondary_db
+```
+
+When a non-default connection is specified, the generated model will include a `$connection` property set to that connection name.
+
+### 📌 Force Overwrite
+
+By default, Apigator will not overwrite existing files. Add `--force` to regenerate:
+
+```bash
+php artisan apigator:generate --table=products --force
+```
+
+> ⚠️ This will completely replace existing model, service, and controller files. Any manual customizations will be lost. Consider using [`--revamp-table`](#model-revamping) to update only specific sections of an existing model.
+
+---
+
+## 📁 Generated Files
+
+### 🗃️ Model is a fully-featured Eloquent model with:
+
+**`$fillable`** — automatically populated with all non-system columns (`id`, `created_at`, `updated_at`, `deleted_at` are excluded):
 
 ```php
-use Virgiandi\ApiGenerator\Traits\ApiModelTrait;
+protected $fillable = [
+    'name',
+    'price',
+    'category_id',
+    'is_active',
+    // ...
+];
+```
 
-class Product extends Model
+**`$casts`** — column types are mapped to appropriate PHP types:
+
+| DB Type | PHP Cast |
+|---|---|
+| `int`, `bigint`, `integer` | `integer` |
+| `tinyint` | `boolean` |
+| `decimal`, `numeric` | `decimal:2` |
+| `float`, `double`, `real` | `float` |
+| `json`, `jsonb` | `array` |
+| `date` | `date` |
+| `datetime`, `timestamp` | `datetime` |
+| Everything else | `string` |
+
+**Validation rules** — both `createRules()` (for `POST`) and `updateRules()` (for `PATCH`) are auto-generated with smart type + name-based heuristics. See the full [Validation Rules](#validation-rules-reference) table below.
+
+**`mapSchema()`** — a customizable method that defines which columns to `SELECT`, any `JOIN`s to apply, and static `WHERE` conditions. See [Schema Customization](#schema-customization-mapschema).
+
+**Soft Deletes** — if a `deleted_at` column is detected, the `SoftDeletes` trait is automatically imported and applied.
+
+#### Validation Rules Reference
+
+Beyond basic type rules, Apigator applies smart name-based heuristics:
+
+| Column Name Pattern | Generated Rule |
+|---|---|
+| Contains `email` | `string`, `email:rfc,dns` |
+| Matches `url`, `link`, `website`, `endpoint` | `string`, `url` |
+| Matches `uuid`, `guid` | `string`, `uuid` |
+| Matches `ip_address`, `ip_addr` | `string`, `ip` |
+| Matches `phone`, `mobile`, `handphone`, `telp` | `string`, `regex:/^+?[0-9\s\-().]{7,20}$/` |
+| Exactly `password` | `string`, `min:8` |
+| Exactly `password_confirmation` | `string`, `same:password` |
+| Exactly `slug` or ends with `_slug` | `string`, slug regex |
+| Matches `username`, `user_name` | `string`, `min:3`, `max:30`, alphanumeric regex |
+| Matches `color`, `colour` | `string`, hex color regex |
+| Matches `lat`, `latitude` | `numeric`, `between:-90,90` |
+| Matches `lng`, `lon`, `longitude` | `numeric`, `between:-180,180` |
+| Matches `price`, `amount`, `qty`, `total`, etc. | `numeric`, `min:0` |
+| Exactly `age` | `integer`, `min:0`, `max:150` |
+| Ends with `_id` | `integer`, `min:1` |
+| `ENUM` or `SET` column | `Rule::in([...values])` |
+
+---
+
+### 🔧 Service (`app/Services/ProductService.php`) provides a clean static API for all CRUD operations. It handles validation, database transactions, and error handling for you.
+
+```php
+// Paginated list
+ProductService::getList($request->all());
+
+// Single record by ID
+ProductService::getById($id, $request->all());
+
+// Create (validates against createRules(), wraps in DB transaction)
+ProductService::createRecord($request->all());
+
+// Update (validates against updateRules(), wraps in DB transaction)
+ProductService::updateRecord($id, $request->all());
+
+// Delete (soft-delete aware)
+ProductService::deleteRecord($id);
+
+// DataTables server-side response
+ProductService::getDatatable($request->all());
+```
+
+Every mutating method (`createRecord`, `updateRecord`, `deleteRecord`) runs inside a database transaction and throws an `ApigatorException` on failure, which Laravel's exception handler renders automatically as a clean JSON response.
+
+---
+
+### 🎮 Controller (`app/Http/Controllers/API/ProductController.php`) is a thin layer that delegates to the service and formats responses:
+
+```php
+class ProductController extends Controller
 {
-    use ApiModelTrait;
+    use ApiControllerTrait;
 
-    public static function mapSchema(array $params = [], array $user = []): array
+    public function index(Request $request): JsonResponse
     {
-        // your schema definition
+        $result = ProductService::getList($request->all());
+        return $this->successResponse($result);
     }
-}
-```
 
-### Calling Model Methods Directly
-
-```php
-// Paginated list with filters
-$result = Product::getList([
-    'status'     => 'active',
-    'price[lte]' => 100,
-    '_sort'      => '-created_at',
-    'per_page'   => 20,
-    'with'       => 'category,user.organization',  // eager load relations
-]);
-
-// Single record
-$product = Product::getById(5);
-$product = Product::getById('PROD-001', ['column' => 'sku']);
-
-// Create / update / delete
-$product = Product::createRecord(['name' => 'New', 'price' => 9.99]);
-Product::updateRecord(5, ['price' => 14.99]);
-Product::deleteRecord(5);
-
-// DataTables
-$data = Product::getDatatable($request->all());
-```
-
-### Extending the Controller
-
-Generated controllers are intentionally thin. Add custom logic by extending:
-
-```php
-class ProductController extends \App\Http\Controllers\API\ProductController
-{
     public function store(Request $request): JsonResponse
     {
-        $request->merge(['created_by' => auth()->id()]);
-        return parent::store($request);
+        $record = ProductService::createRecord($request->all());
+        return $this->successResponse($record, 'Product created successfully.', 201);
     }
+
+    // show, update, destroy, datatable ...
+}
+```
+
+All methods include pre-written **OpenAPI / Swagger annotations** (`@OA\Get`, `@OA\Post`, etc.), ready to be picked up by tools like [L5-Swagger](https://github.com/DarkaOnLine/L5-Swagger).
+
+---
+
+### 🛣️ Routes to your route file (default: `routes/api.php`) inside a clearly marked block:
+
+```php
+// [APIGATOR_ENDPOINTS] products
+Route::get('/products',              [ProductController::class, 'index']);
+Route::get('/products/{id}',         [ProductController::class, 'show']);
+Route::post('/products',             [ProductController::class, 'store']);
+Route::patch('/products/{id}',       [ProductController::class, 'update']);
+Route::delete('/products/{id}',      [ProductController::class, 'destroy']);
+Route::post('/products_datatable',   [ProductController::class, 'datatable']);
+```
+
+The `use ProductController;` import statement is also injected automatically. Running the command a second time will not duplicate routes — Apigator checks for the marker and skips gracefully.
+
+---
+
+## 🔍 Runtime Query API
+
+Every generated endpoint supports a rich query API out of the box, driven entirely by request parameters. No extra code required.
+
+### 🔎 Filtering
+
+Append filter parameters as query strings. The default operator is `eq` (equality).
+
+```
+GET /products?is_active=1
+GET /products?category_id=5
+```
+
+Use bracket notation to apply a specific operator:
+
+```
+GET /products?price[gte]=100
+GET /products?price[lte]=500
+GET /products?name[like]=phone
+GET /products?created_at[date_from]=2024-01-01&created_at[date_to]=2024-12-31
+GET /products?status[in]=active,pending
+GET /products?deleted_at[null]=1
+```
+
+**Available operators:**
+
+| Operator | SQL Equivalent | Example |
+|---|---|---|
+| `eq` (default) | `= value` | `?status=active` |
+| `neq` | `!= value` | `?status[neq]=inactive` |
+| `gt` | `> value` | `?price[gt]=100` |
+| `gte` | `>= value` | `?price[gte]=100` |
+| `lt` | `< value` | `?stock[lt]=10` |
+| `lte` | `<= value` | `?stock[lte]=50` |
+| `like` | `LIKE %value%` | `?name[like]=apple` |
+| `starts` | `LIKE value%` | `?name[starts]=pro` |
+| `ends` | `LIKE %value` | `?name[ends]=plus` |
+| `in` | `IN (a, b, c)` | `?status[in]=active,pending` |
+| `not_in` | `NOT IN (a, b, c)` | `?status[not_in]=deleted` |
+| `null` | `IS NULL` | `?deleted_at[null]=1` |
+| `not_null` | `IS NOT NULL` | `?published_at[not_null]=1` |
+| `between` | `BETWEEN a AND b` | `?price[between]=10,100` |
+| `date_from` | `DATE(col) >= value` | `?created_at[date_from]=2024-01-01` |
+| `date_to` | `DATE(col) <= value` | `?created_at[date_to]=2024-12-31` |
+
+> **Security:** All column names are validated against a whitelist derived from your schema. Unknown or unallowed columns are silently ignored, preventing SQL injection.
+
+### 🔀 Sorting
+
+Use `_sort` to specify sort columns. Prefix with `-` for descending order. Chain multiple columns with commas.
+
+```
+GET /products?_sort=name            → ORDER BY name ASC
+GET /products?_sort=-price          → ORDER BY price DESC
+GET /products?_sort=category_id,-price  → ORDER BY category_id ASC, price DESC
+```
+
+### 📄 Pagination
+
+```
+GET /products?page=2&per_page=25
+```
+
+The response includes a `meta` object:
+
+```json
+{
+  "meta": {
+    "current_page": 2,
+    "per_page": 25,
+    "total_pages": 10,
+    "total_items": 250
+  },
+  "data": [ ... ]
+}
+```
+
+The `per_page` value is clamped between `1` and `1000`. The default is controlled by `default_per_page` in the config.
+
+### 🔤 Full-Text Search
+
+Use `_search` to perform a `LIKE` search across all string-type columns simultaneously:
+
+```
+GET /products?_search=wireless+headphones
+```
+
+This generates a `WHERE (col1 LIKE '%wireless headphones%' OR col2 LIKE '%wireless headphones%' OR ...)` query across every searchable text column defined in your schema.
+
+### 🔗 OR Groups
+
+Combine multiple conditions with OR logic using the `_or` parameter:
+
+```
+GET /products?_or[0][status][eq]=active&_or[1][featured][eq]=1
+```
+
+This generates:
+
+```sql
+WHERE (status = 'active' OR featured = 1)
+```
+
+You can mix multiple operators within each group:
+
+```
+GET /products?_or[0][price][lt]=50&_or[1][price][gt]=500
+```
+
+### 📥 Eager Loading (Relations)
+
+Load Eloquent relations on-the-fly without modifying the controller:
+
+```
+GET /products?with=category
+GET /products?with=category,tags
+GET /products?with=category.parent
+GET /products?with=category,reviews.user
+```
+
+Apigator validates each relation segment against the model before passing it to `->with()`. Invalid or misspelled relations are silently dropped, so a client typo will never cause a 500 error.
+
+---
+
+## 🗺️ Schema Customization (`mapSchema`)
+
+The `mapSchema()` method is the heart of Apigator's query engine. It lets you control exactly which columns are selected, which tables are joined, and which conditions are always applied — all without touching controller or service logic.
+
+The generated version selects only the table's own columns, but you can freely extend it.
+
+### 📝 Defining Fields
+
+Each entry in `'field'` maps an alias to a `column` expression:
+
+```php
+public static function mapSchema(array $params = []): array
+{
+    $model = new self;
+
+    return [
+        'field' => [
+            'id'          => ['column' => $model->table.'.id',          'alias' => 'id',          'type' => 'int'],
+            'name'        => ['column' => $model->table.'.name',        'alias' => 'name',        'type' => 'string'],
+            'price'       => ['column' => $model->table.'.price',       'alias' => 'price',       'type' => 'float'],
+            'category_id' => ['column' => $model->table.'.category_id', 'alias' => 'category_id', 'type' => 'int'],
+        ],
+        'join'  => [],
+        'where' => [],
+    ];
+}
+```
+
+**Field definition keys:**
+
+| Key | Description |
+|---|---|
+| `column` | The actual SQL column expression (`table.column` or raw SQL) |
+| `alias` | The key name in the response JSON |
+| `type` | `string`, `int`, `float`, `bool`, `date`, `datetime`, `json` |
+| `is_raw` | Set to `true` to treat `column` as a raw SQL expression |
+
+> **Searchable columns:** Only `string`-type fields are included in `_search` full-text queries. Set `type` accurately for correct behavior.
+
+### 🔗 Adding JOINs
+
+Extend the `'join'` array to join related tables:
+
+```php
+'join' => [
+    [
+        'table' => 'categories as c',
+        'type'  => 'left',
+        'on'    => ['c.id', '=', $model->table.'.category_id'],
+    ],
+    [
+        'table' => 'brands as b',
+        'type'  => 'inner',
+        'on'    => ['b.id', '=', $model->table.'.brand_id'],
+    ],
+],
+```
+
+Then add the joined columns to `'field'`:
+
+```php
+'field' => [
+    // ... own columns ...
+    'category_name' => ['column' => 'c.name', 'alias' => 'category_name', 'type' => 'string'],
+    'brand_name'    => ['column' => 'b.name', 'alias' => 'brand_name',    'type' => 'string'],
+],
+```
+
+Supported join types: `left`, `right`, `inner` (default).
+
+### 🛡️ Static WHERE Conditions
+
+Use `'where'` to apply conditions that are always active, regardless of request parameters:
+
+```php
+'where' => [
+    // Only return published products
+    ['column' => $model->table.'.is_published', 'operator' => '=',       'value' => 1],
+    // Exclude archived records
+    ['column' => $model->table.'.archived_at',  'operator' => 'IS NULL', 'value' => null],
+],
+```
+
+### 💾 Raw SQL Expressions
+
+Set `is_raw => true` to use any SQL expression as a column:
+
+```php
+'field' => [
+    'full_name' => [
+        'column' => "CONCAT(u.first_name, ' ', u.last_name)",
+        'alias'  => 'full_name',
+        'type'   => 'string',
+        'is_raw' => true,
+    ],
+    'age' => [
+        'column' => 'TIMESTAMPDIFF(YEAR, u.birth_date, CURDATE())',
+        'alias'  => 'age',
+        'type'   => 'int',
+        'is_raw' => true,
+    ],
+],
+```
+
+### ⚡ Dynamic Context in `mapSchema`
+
+The `$params` arguments are passed in from the request, allowing you to build dynamic schemas:
+
+```php
+public static function mapSchema(array $params = []): array
+{
+    $model = new self;
+
+    $user_id = isset($params['user_id']) ? $params['user_id'] : null;
+
+    $fields = [
+        'id'   => ['column' => $model->table.'.id',   'alias' => 'id',   'type' => 'int'],
+        'name' => ['column' => $model->table.'.name', 'alias' => 'name', 'type' => 'string'],
+    ];
+
+    // Only expose the cost_price field to admin users
+    if ($user_id) {
+        $fields['cost_price'] = ['column' => $model->table.'.cost_price', 'alias' => 'cost_price', 'type' => 'float'];
+    }
+
+    return [
+        'field' => $fields,
+        'join'  => [],
+        'where' => [
+            ['column' => $model->table.'.tenant_id', 'operator' => '=', 'value' => $user_id],
+        ],
+    ];
 }
 ```
 
 ---
 
-## File Structure
+## 📊 DataTables Integration
+
+Every generated controller includes a `datatable` action that accepts a standard DataTables server-side `POST` payload:
 
 ```
-laravel-apigator/
-├── composer.json
-├── config/
-│   └── apigator.php
-└── src/
-    ├── ApigatorServiceProvider.php
-    ├── Commands/
-    │   └── GenerateApiCommand.php        ← Artisan command
-    ├── Generators/
-    │   ├── ModelGenerator.php            ← Builds the Model PHP file
-    │   ├── ControllerGenerator.php       ← Builds the Controller PHP file
-    │   └── RouteGenerator.php            ← Appends routes inside the marker block
-    ├── Support/
-    │   ├── DynamicQueryParser.php        ← Parses URL params into Eloquent filters
-    │   ├── SchemaQueryBuilder.php        ← Builds queries from mapSchema definitions
-    │   └── ValidationRuleBuilder.php     ← Derives validation rules from column types
-    └── Traits/
-        ├── ApiModelTrait.php             ← Core CRUD + DataTables logic (on Model)
-        └── ApiControllerTrait.php        ← JSON response helpers (on Controller)
+POST /products_datatable
+Content-Type: application/json
+
+{
+  "draw": 1,
+  "start": 0,
+  "length": 25,
+  "search": { "value": "wireless" },
+  "order": [{ "column": 2, "dir": "asc" }],
+  "columns": [
+    { "data": "id",    "name": "id",    "searchable": "true", "orderable": "true" },
+    { "data": "name",  "name": "name",  "searchable": "true", "orderable": "true" },
+    { "data": "price", "name": "price", "searchable": "false","orderable": "true" }
+  ]
+}
+```
+
+The response follows the DataTables format:
+
+```json
+{
+  "draw": 1,
+  "recordsTotal": 500,
+  "recordsFiltered": 12,
+  "data": [ ... ]
+}
+```
+
+The endpoint supports:
+- **Global search** across all `searchable: true` string columns
+- **Per-column search** via the `columns[n].search.value` field
+- **Multi-column ordering** via the `order` array
+- **All dynamic filter parameters** from the [Runtime Query API](#runtime-query-api), appended alongside DataTables parameters
+
+---
+
+## 🔄 Model Revamping
+
+When your database schema changes (new columns added, types changed, columns removed), use `--revamp-table` to surgically update your existing model without losing any manual customizations:
+
+```bash
+# Revamp a single model
+php artisan apigator:generate --revamp-table=products
+
+# Revamp all models
+php artisan apigator:generate --revamp-table=all
+```
+
+The revamper **only touches three sections** of your model file:
+
+| Section | What changes |
+|---|---|
+| `protected $fillable` | Rebuilt entirely from current DB columns |
+| `protected $casts` | Rebuilt entirely from current DB column types |
+| `createRules()` return array | Rebuilt from current DB columns |
+| `updateRules()` return array | Rebuilt from current DB columns |
+| `mapSchema()` field entries | Only **own-table** entries are replaced; custom entries from joined tables are preserved |
+
+Everything else — your Eloquent relations, custom methods, joins, static wheres, and comments — is left completely untouched.
+
+**Example workflow for an evolving schema:**
+
+```bash
+# 1. Initial generation
+php artisan apigator:generate --table=products
+
+# 2. You manually add relations and joins to Product.php ...
+
+# 3. Your team adds a `sku` column and removes `legacy_code`
+php artisan apigator:generate --revamp-table=products
+# ✅ $fillable, $casts, rules, and own-table schema fields updated
+# ✅ Your custom relations and joined table fields preserved
 ```
 
 ---
 
-## License
+## 🚨 Exception Handling
 
-MIT
+Apigator ships with two exception classes that integrate with Laravel's exception handler to return consistent JSON error responses automatically.
+
+### `ApigatorException`
+
+A general-purpose HTTP exception. Laravel calls its `render()` method automatically, so you never need to manually catch it in controllers.
+
+**Named constructors for common scenarios:**
+
+```php
+use Virgiandi\Apigator\Support\ApigatorException;
+
+// 400 Bad Request
+throw ApigatorException::withMessage('Invalid input.');
+
+// 401 Unauthorized
+throw ApigatorException::unauthorized();
+
+// 403 Forbidden
+throw ApigatorException::forbidden();
+
+// 404 Not Found
+throw ApigatorException::notFound(
+    translationKey: 'errors.product_not_found',
+    errorCode: 'PRODUCT_NOT_FOUND'
+);
+
+// 422 Unprocessable
+throw ApigatorException::unprocessable();
+
+// 500 Server Error
+throw ApigatorException::serverError();
+```
+
+**JSON response shape:**
+
+```json
+{
+  "success": false,
+  "message": "Not found.",
+  "error_code": "PRODUCT_NOT_FOUND"
+}
+```
+
+### `ApigatorValidationException`
+
+Extends `ApigatorException` with field-level validation errors. Always returns HTTP `422`.
+
+```php
+use Virgiandi\Apigator\Support\ApigatorValidationException;
+
+// From a Laravel Validator instance
+$validator = Validator::make($data, $rules);
+if ($validator->fails()) {
+    throw ApigatorValidationException::fromValidator($validator);
+}
+
+// From a ValidationException
+throw ApigatorValidationException::fromValidation($e);
+
+// With manually specified errors
+throw ApigatorValidationException::withErrors([
+    'email' => ['This email is already registered.'],
+    'items' => ['Cart cannot be empty.'],
+]);
+```
+
+**JSON response shape:**
+
+```json
+{
+  "success": false,
+  "message": "The given data was invalid.",
+  "error_code": "VALIDATION_FAILED",
+  "errors": {
+    "email": ["This email is already registered."],
+    "items": ["Cart cannot be empty."]
+  }
+}
+```
+
+> **Logging behavior:** `ApigatorException` only logs to your error tracker for `5xx` responses. `ApigatorValidationException` (422) is never logged, keeping your logs clean from expected client errors.
+
+---
+
+## 🧩 Traits Reference
+
+### `ApiModelTrait`
+
+Mixed into every generated model. Provides the query engine that powers the runtime API.
+
+| Method | Description |
+|---|---|
+| `buildBaseQuery(array $params)` | Builds the base Eloquent query by applying `mapSchema()`, dynamic filters, sorting, and eager loads |
+| `applyEagerLoads(Builder $query, $instance, $with)` | Validates and applies `?with=` relation chains |
+| `applyDatatableSearch(Builder $query, array $params)` | Applies DataTables global and per-column search |
+| `applyDatatableOrder(Builder $query, array $params)` | Applies DataTables column ordering |
+
+You can call `buildBaseQuery()` directly in your own service methods if you need to build on top of the generated query:
+
+```php
+// Custom service method example
+public static function getTopRated(array $params): array
+{
+    $query = Product::buildBaseQuery($params);
+    $query->where('rating', '>=', 4.5)->orderBy('rating', 'desc');
+    return $query->limit(10)->get()->toArray();
+}
+```
+
+### `ApiControllerTrait`
+
+Mixed into every generated controller. Provides standardized JSON response helpers.
+
+```php
+// 200 OK with data
+$this->successResponse($data);
+
+// 200 OK with custom message
+$this->successResponse($data, 'Product updated successfully.');
+
+// 201 Created
+$this->successResponse($record, 'Product created.', 201);
+
+// 400 Bad Request
+$this->errorResponse('Something went wrong.', 400);
+
+// 404 Not Found
+$this->notFoundResponse('Product');
+
+// 422 Validation Error
+$this->validationErrorResponse($validationException);
+```
+
+**Response shape for `successResponse`:**
+
+```json
+{
+  "success": true,
+  "message": "Product updated successfully.",
+  "data": { ... }
+}
+```
+
+---
+
+## 🗂️ Configuration Reference
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `controller_directory` | `string` | `Http/Controllers/API` | Controller output directory (relative to `app/`) |
+| `model_directory` | `string` | `Models` | Model output directory (relative to `app/`) |
+| `service_directory` | `string` | `Services` | Service output directory (relative to `app/`) |
+| `route_delimiter` | `string` | `_` | URL segment delimiter (`_` → `/my_resource`, `-` → `/my-resource`) |
+| `route_file` | `string` | `routes/api.php` | Route file where generated routes are appended |
+| `default_per_page` | `int` | `10` | Default pagination page size |
+| `exclude_tables` | `array` | *(Laravel system tables)* | Tables to skip during `--table=all` generation |
+
+---
+
+## 📄 License
+
+This package is open-source software licensed under the [MIT License](https://opensource.org/licenses/MIT).
+
+---
+
+<p align="center">
+  Made with ❤️ by <a href="mailto:rakhavirgiandi@gmail.com">Rakha R. Virgiandi</a>
+</p>

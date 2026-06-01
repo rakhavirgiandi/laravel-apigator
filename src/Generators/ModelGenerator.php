@@ -113,9 +113,8 @@ class {$modelName} extends Model
      * Fields here control SELECT columns, JOINs, and static WHERE conditions.
      *
      * @param  array \$params  Request parameters (can be used for dynamic conditions)
-     * @param  array \$user    Authenticated user data
      */
-    public static function mapSchema(array \$params = [], array \$user = []): array
+    public static function mapSchema(array \$params = []): array
     {
 {$mapSchema}
     }

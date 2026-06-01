@@ -19,7 +19,7 @@ trait ApiModelTrait
     /**
      * Build the base query, applying mapSchema (if defined) and dynamic filters.
      */
-    protected static function buildBaseQuery(array $params = [], array $user = []): Builder
+    protected static function buildBaseQuery(array $params = []): Builder
     {
         /** @var \Illuminate\Database\Eloquent\Model $instance */
         $instance = new static;
@@ -27,7 +27,7 @@ trait ApiModelTrait
 
         // If model defines mapSchema(), use it
         if (method_exists(static::class, 'mapSchema')) {
-            $schema  = static::mapSchema($params, $user);
+            $schema  = static::mapSchema($params);
             $fields  = $schema['field'] ?? [];
 
             // Apply joins + static wheres
@@ -187,7 +187,7 @@ trait ApiModelTrait
     /**
      * Apply DataTables ORDER BY.
      */
-    protected static function applyDatatableOrder(Builder $query, array $params, array $user = []): void
+    protected static function applyDatatableOrder(Builder $query, array $params): void
     {
         $orders  = $params['order'] ?? [];
         $columns = $params['columns'] ?? [];
@@ -199,7 +199,7 @@ trait ApiModelTrait
         // Build fields map from schema if available
         $fields = [];
         if (method_exists(static::class, 'mapSchema')) {
-            $schema = static::mapSchema($params, $user);
+            $schema = static::mapSchema($params);
             $fields = $schema['field'] ?? [];
         }
 
@@ -240,7 +240,7 @@ trait ApiModelTrait
     /**
      * Get columns eligible for DataTables search.
      */
-    protected static function getDatatableSearchableColumns(array $params, array $user = []): array
+    protected static function getDatatableSearchableColumns(array $params): array
     {
         $columns = $params['columns'] ?? [];
         $result  = [];
@@ -248,7 +248,7 @@ trait ApiModelTrait
         $schema_column = [];
 
         if (method_exists(static::class, 'mapSchema')) {
-            $schema = static::mapSchema($params, $user);
+            $schema = static::mapSchema($params);
             $fields = $schema['field'] ?? [];
 
             $schema_column = array_column($fields, 'column') ? array_column($fields, 'column') : array_keys($fields);

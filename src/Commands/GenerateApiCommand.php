@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Virgiandi\Apigator\Generators\ControllerGenerator;
 use Virgiandi\Apigator\Generators\ModelGenerator;
+use Virgiandi\Apigator\Generators\ModelRevamper;
 use Virgiandi\Apigator\Generators\RouteGenerator;
 use Virgiandi\Apigator\Generators\ServiceGenerator;
 
@@ -15,8 +16,9 @@ class GenerateApiCommand extends Command
 {
     protected $signature = 'apigator:generate
                             {--table= : Table name or "all" to generate for all tables}
+                            {--revamp-table= : Table name or "all" to revamp $casts, createRules(), and mapSchema() fields in existing model(s)}
                             {--connection= : Database connection to use (default: app default connection)}
-                            {--generate= : Comma-separated list of what to generate: model,controller,route (default: all)}
+                            {--generate= : Comma-separated list of what to generate: model,service,controller,route (default: all)}
                             {--controller-dir= : Custom controller directory (relative to app/)}
                             {--service-dir= : Custom service directory (relative to app/)}
                             {--model-dir= : Custom model directory (relative to app/)}
@@ -36,6 +38,13 @@ class GenerateApiCommand extends Command
 
     public function handle(): int
     {
+        // ── Revamp mode: patch existing model(s) with fresh column data ───────
+        $revampTable = $this->option('revamp-table');
+        if (!empty($revampTable)) {
+            return $this->handleRevamp($revampTable);
+        }
+
+        // ── Normal generate mode ──────────────────────────────────────────────
         $table = $this->option('table');
 
         if (empty($table)) {
@@ -76,7 +85,113 @@ class GenerateApiCommand extends Command
     }
 
     // -------------------------------------------------------------------------
-    // Core logic
+    // Revamp logic
+    // -------------------------------------------------------------------------
+
+    /**
+     * Resolve connection / model-dir and dispatch to single-table or all-tables revamp.
+     */
+    protected function handleRevamp(string $revampTable): int
+    {
+        $connection = $this->option('connection')
+            ?? config('apigator.connection')
+            ?? config('database.default');
+
+        if (!array_key_exists($connection, config('database.connections', []))) {
+            $this->error("Database connection [{$connection}] is not configured.");
+            return self::FAILURE;
+        }
+
+        $modelDir = $this->option('model-dir')
+            ?? config('apigator.model_directory', 'Models');
+
+        if ($revampTable === 'all') {
+            return $this->revampAll($connection, $modelDir);
+        }
+
+        return $this->revampForTable($revampTable, $connection, $modelDir);
+    }
+
+    /**
+     * Revamp every non-excluded table in the database.
+     */
+    protected function revampAll(string $connection, string $modelDir): int
+    {
+        $excludedTables = config('apigator.exclude_tables', []);
+        $tables         = $this->getAllTables($connection);
+
+        if (empty($tables)) {
+            $this->error('No tables found in the database.');
+            return self::FAILURE;
+        }
+
+        $revamped = 0;
+        $skipped  = 0;
+
+        foreach ($tables as $table) {
+            if (in_array($table, $excludedTables)) {
+                $this->line("  <fg=gray>Skipping excluded table:</> {$table}");
+                $skipped++;
+                continue;
+            }
+
+            $result = $this->revampForTable($table, $connection, $modelDir, quiet: true);
+
+            if ($result === self::SUCCESS) {
+                $revamped++;
+            } else {
+                $skipped++;
+            }
+        }
+
+        $this->info("\n✅  Done! Revamped: {$revamped}, Skipped: {$skipped}");
+        return self::SUCCESS;
+    }
+
+    /**
+     * Revamp a single table's model.
+     *
+     * Sections updated:
+     *   • `protected $casts`              → rebuilt from current DB columns
+     *   • `createRules()` return array    → rebuilt from current DB columns
+     *   • `mapSchema()` 'field' entries   → own-table entries rebuilt; foreign-
+     *                                       table entries preserved unchanged
+     */
+    protected function revampForTable(
+        string $table,
+        string $connection,
+        string $modelDir,
+        bool   $quiet = false
+    ): int {
+        if (!Schema::connection($connection)->hasTable($table)) {
+            $this->error("Table [{$table}] does not exist on connection [{$connection}].");
+            return self::FAILURE;
+        }
+
+        $modelName = Str::studly(Str::singular($table));
+        $columns   = $this->getColumnsInfo($table, $connection);
+
+        $context = [
+            'table'      => $table,
+            'connection' => $connection,
+            'modelName'  => $modelName,
+            'modelDir'   => $modelDir,
+            'columns'    => $columns,
+        ];
+
+        (new ModelRevamper($this))->revamp($context);
+
+        if (!$quiet) {
+            $this->info("✅  Revamped model for table [{$table}] on connection [{$connection}].");
+        } else {
+            $this->line("  <fg=green>Revamped:</> {$table}");
+        }
+
+        return self::SUCCESS;
+    }
+
+    // -------------------------------------------------------------------------
+    // Core generate logic (unchanged)
     // -------------------------------------------------------------------------
 
     protected function generateAll(

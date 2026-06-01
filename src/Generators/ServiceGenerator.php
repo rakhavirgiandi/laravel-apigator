@@ -88,17 +88,16 @@ class ServiceGenerator
              * Return paginated list.
              *
              * @param  array \$params  request()->all()
-             * @param  array \$user    authenticated user data (passed to mapSchema)
              * @return array
              */
-            public static function getList(array \$params = [], array \$user = []): array
+            public static function getList(array \$params = []): array
             {
                 \$perPage = (int) (\$params['per_page'] ?? \$params['_per_page']
                     ?? config('apigator.default_per_page', 10));
 
                 \$perPage = max(1, min(\$perPage, 1000)); // clamp
 
-                \$query = {$modelName}::buildBaseQuery(\$params, \$user);
+                \$query = {$modelName}::buildBaseQuery(\$params);
 
                 \$paginator = \$query->paginate(\$perPage, ['*'], 'page', \$params['page'] ?? 1);
 
@@ -121,10 +120,9 @@ class ServiceGenerator
              * Return a DataTables-compatible response.
              *
              * @param  array \$params  DataTables POST parameters + custom user params
-             * @param  array \$user
              * @return array
              */
-            public static function getDatatable(array \$params = [], array \$user = []): array
+            public static function getDatatable(array \$params = []): array
             {
                 \$draw    = (int) (\$params['draw'] ?? 1);
                 \$start   = (int) (\$params['start'] ?? 0);
@@ -132,13 +130,13 @@ class ServiceGenerator
                 \$length  = max(1, min(\$length, 1000));
 
                 // Count total before filters
-                \$baseQuery = {$modelName}::buildBaseQuery([], \$user);
+                \$baseQuery = {$modelName}::buildBaseQuery([]);
                 \$recordsTotal = (clone \$baseQuery)->count();
 
                 // Apply DataTables search / column filters
-                \$filteredQuery = {$modelName}::buildBaseQuery(\$params, \$user);
+                \$filteredQuery = {$modelName}::buildBaseQuery(\$params);
                 {$modelName}::applyDatatableSearch(\$filteredQuery, \$params);
-                {$modelName}::applyDatatableOrder(\$filteredQuery, \$params, \$user);
+                {$modelName}::applyDatatableOrder(\$filteredQuery, \$params);
 
                 \$recordsFiltered = (clone \$filteredQuery)->count();
 
@@ -161,12 +159,11 @@ class ServiceGenerator
              *
              * @param  mixed  \$id
              * @param  array  \$params  May contain 'column' key to search by custom column
-             * @param  array  \$user
              * @return \Illuminate\Database\Eloquent\Model|null
              */
-            public static function getById(mixed \$id, array \$params = [], array \$user = []): ?{$modelName}
+            public static function getById(mixed \$id, array \$params = []): ?{$modelName}
             {
-                \$query = {$modelName}::buildBaseQuery(\$params, \$user);
+                \$query = {$modelName}::buildBaseQuery(\$params);
 
                 \$column = \$params['column'] ?? 'id';
 
