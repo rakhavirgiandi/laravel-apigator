@@ -1,4 +1,4 @@
-# ⚡ Laravel Apigator
+# Laravel Apigator
 
 <p>
   <strong>Auto-generate production-ready CRUD APIs from your database tables — in seconds.</strong>
@@ -21,45 +21,45 @@ It also ships with a powerful runtime query engine that gives every generated en
 
 ## 📖 Table of Contents
 
-- [✨ Features](#features)
-- [📋 Requirements](#requirements)
-- [📦 Installation](#installation)
-- [⚙️ Configuration](#configuration)
-- [🚀 Quick Start](#quick-start)
-- [🛠️ The `apigator:generate` Command](#the-apigatorgenerate-command)
-  - [📌 Generating a Single Table](#generating-a-single-table)
-  - [📌 Generating All Tables](#generating-all-tables)
-  - [📌 Selective Generation](#selective-generation)
-  - [📌 Custom Directories](#custom-directories)
-  - [📌 Multi-Database Connections](#multi-database-connections)
-  - [📌 Force Overwrite](#force-overwrite)
-- [📁 Generated Files](#generated-files)
-  - [🗃️ Model](#model)
-  - [🔧 Service](#service)
-  - [🎮 Controller](#controller)
-  - [🛣️ Routes](#routes)
-- [🔍 Runtime Query API](#runtime-query-api)
-  - [🔎 Filtering](#filtering)
-  - [🔀 Sorting](#sorting)
-  - [📄 Pagination](#pagination)
-  - [🔤 Full-Text Search](#full-text-search)
-  - [🔗 OR Groups](#or-groups)
-  - [📥 Eager Loading (Relations)](#eager-loading-relations)
-- [🗺️ Schema Customization (`mapSchema`)](#schema-customization-mapschema)
-  - [📝 Defining Fields](#defining-fields)
-  - [🔗 Adding JOINs](#adding-joins)
-  - [🛡️ Static WHERE Conditions](#static-where-conditions)
-  - [💾 Raw SQL Expressions](#raw-sql-expressions)
-- [📊 DataTables Integration](#datatables-integration)
-- [🔄 Model Revamping](#model-revamping)
-- [🚨 Exception Handling](#exception-handling)
-- [🧩 Traits Reference](#traits-reference)
-- [🗂️ Configuration Reference](#configuration-reference)
-- [📄 License](#license)
+- [Features ✨](#features-)
+- [Requirements 📋](#requirements-)
+- [Installation 📦](#installation-)
+- [Configuration ⚙️](#configuration-️)
+- [Quick Start 🚀](#quick-start-)
+- [The Generate Command 🛠️](#the-generate-command-️)
+  - [Generating a Single Table](#generating-a-single-table)
+  - [Generating All Tables](#generating-all-tables)
+  - [Selective Generation](#selective-generation)
+  - [Custom Directories](#custom-directories)
+  - [Multi-Database Connections](#multi-database-connections)
+  - [Force Overwrite](#force-overwrite)
+- [Generated Files 📁](#generated-files-)
+  - [Model](#model)
+  - [Service](#service)
+  - [Controller](#controller)
+  - [Routes](#routes)
+- [Runtime Query API 🔍](#runtime-query-api-)
+  - [Filtering](#filtering)
+  - [Sorting](#sorting)
+  - [Pagination](#pagination)
+  - [Full-Text Search](#full-text-search)
+  - [OR Groups](#or-groups)
+  - [Eager Loading (Relations)](#eager-loading-relations)
+- [Schema Customization (`mapSchema`) 🗺️](#schema-customization-mapschema-️)
+  - [Defining Fields](#defining-fields)
+  - [Adding JOINs](#adding-joins)
+  - [Static WHERE Conditions](#static-where-conditions)
+  - [Raw SQL Expressions](#raw-sql-expressions)
+- [DataTables Integration 📊](#datatables-integration-)
+- [Model Revamping 🔄](#model-revamping-)
+- [Exception Handling 🚨](#exception-handling-)
+- [Traits Reference 🧩](#traits-reference-)
+- [Configuration Reference 🗂️](#configuration-reference-)
+- [License 📄](#license-)
 
 ---
 
-## ✨ Features
+## Features ✨
 
 - **One-command API generation** — generates Model, Service, Controller, and Routes from any database table
 - **Generate all tables at once** with `--table=all`, auto-skipping system tables
@@ -79,7 +79,7 @@ It also ships with a powerful runtime query engine that gives every generated en
 
 ---
 
-## 📋 Requirements
+## Requirements 📋
 
 | Dependency | Version |
 |---|---|
@@ -90,7 +90,7 @@ Supported databases: **MySQL**, **MariaDB**, **PostgreSQL**, **SQLite**, **SQL S
 
 ---
 
-## 📦 Installation
+## Installation 📦
 
 Install the package via Composer:
 
@@ -110,7 +110,7 @@ This creates `config/apigator.php` in your project, which you can customize to y
 
 ---
 
-## ⚙️ Configuration
+## Configuration ⚙️
 
 After publishing, open `config/apigator.php`:
 
@@ -154,7 +154,7 @@ All settings can also be overridden at runtime via command-line options (see [Co
 
 ---
 
-## 🚀 Quick Start
+## Quick Start 🚀
 
 Suppose you have a `products` table. Run:
 
@@ -186,13 +186,13 @@ Your API is now fully functional:
 
 ---
 
-## 🛠️ The `apigator:generate` Command
+## The Generate Command 🛠️
 
 ```
 php artisan apigator:generate [options]
 ```
 
-### 📌 Generating a Single Table
+### Generating a Single Table
 
 ```bash
 php artisan apigator:generate --table=orders
@@ -200,7 +200,7 @@ php artisan apigator:generate --table=orders
 
 Generates `Order`, `OrderService`, `OrderController`, and appends routes for the `orders` table.
 
-### 📌 Generating All Tables
+### Generating All Tables
 
 ```bash
 php artisan apigator:generate --table=all
@@ -208,7 +208,7 @@ php artisan apigator:generate --table=all
 
 Iterates every table in the database, skipping the ones listed in `exclude_tables`. Reports generated vs. skipped at the end.
 
-### 📌 Selective Generation
+### Selective Generation
 
 Use `--generate` to control which components are created. Accepts a comma-separated list of: `model`, `service`, `controller`, `route`.
 
@@ -225,7 +225,7 @@ php artisan apigator:generate --table=invoices --generate=model,service,controll
 
 > **Note:** The generator respects dependency order. Generating a `controller` requires the `service` file to already exist, and generating a `service` requires the `model` to exist.
 
-### 📌 Custom Directories
+### Custom Directories
 
 Override the default output paths on a per-run basis:
 
@@ -239,7 +239,7 @@ php artisan apigator:generate \
 
 Namespaces are derived automatically from the directory path (e.g. `Domain/Users/Models` → `App\Domain\Users\Models`).
 
-### 📌 Multi-Database Connections
+### Multi-Database Connections
 
 Target any connection defined in `config/database.php`:
 
@@ -249,7 +249,7 @@ php artisan apigator:generate --table=customers --connection=secondary_db
 
 When a non-default connection is specified, the generated model will include a `$connection` property set to that connection name.
 
-### 📌 Force Overwrite
+### Force Overwrite
 
 By default, Apigator will not overwrite existing files. Add `--force` to regenerate:
 
@@ -261,9 +261,9 @@ php artisan apigator:generate --table=products --force
 
 ---
 
-## 📁 Generated Files
+## Generated Files 📁
 
-### 🗃️ Model is a fully-featured Eloquent model with:
+### Model is a fully-featured Eloquent model with:
 
 **`$fillable`** — automatically populated with all non-system columns (`id`, `created_at`, `updated_at`, `deleted_at` are excluded):
 
@@ -321,7 +321,7 @@ Beyond basic type rules, Apigator applies smart name-based heuristics:
 
 ---
 
-### 🔧 Service (`app/Services/ProductService.php`) provides a clean static API for all CRUD operations. It handles validation, database transactions, and error handling for you.
+### Service (`app/Services/ProductService.php`) provides a clean static API for all CRUD operations. It handles validation, database transactions, and error handling for you.
 
 ```php
 // Paginated list
@@ -347,7 +347,7 @@ Every mutating method (`createRecord`, `updateRecord`, `deleteRecord`) runs insi
 
 ---
 
-### 🎮 Controller (`app/Http/Controllers/API/ProductController.php`) is a thin layer that delegates to the service and formats responses:
+### Controller (`app/Http/Controllers/API/ProductController.php`) is a thin layer that delegates to the service and formats responses:
 
 ```php
 class ProductController extends Controller
@@ -374,7 +374,7 @@ All methods include pre-written **OpenAPI / Swagger annotations** (`@OA\Get`, `@
 
 ---
 
-### 🛣️ Routes to your route file (default: `routes/api.php`) inside a clearly marked block:
+### Routes to your route file (default: `routes/api.php`) inside a clearly marked block:
 
 ```php
 // [APIGATOR_ENDPOINTS] products
@@ -390,11 +390,11 @@ The `use ProductController;` import statement is also injected automatically. Ru
 
 ---
 
-## 🔍 Runtime Query API
+## Runtime Query API 🔍
 
 Every generated endpoint supports a rich query API out of the box, driven entirely by request parameters. No extra code required.
 
-### 🔎 Filtering
+### Filtering
 
 Append filter parameters as query strings. The default operator is `eq` (equality).
 
@@ -437,7 +437,7 @@ GET /products?deleted_at[null]=1
 
 > **Security:** All column names are validated against a whitelist derived from your schema. Unknown or unallowed columns are silently ignored, preventing SQL injection.
 
-### 🔀 Sorting
+### Sorting
 
 Use `_sort` to specify sort columns. Prefix with `-` for descending order. Chain multiple columns with commas.
 
@@ -447,7 +447,7 @@ GET /products?_sort=-price          → ORDER BY price DESC
 GET /products?_sort=category_id,-price  → ORDER BY category_id ASC, price DESC
 ```
 
-### 📄 Pagination
+### Pagination
 
 ```
 GET /products?page=2&per_page=25
@@ -469,7 +469,7 @@ The response includes a `meta` object:
 
 The `per_page` value is clamped between `1` and `1000`. The default is controlled by `default_per_page` in the config.
 
-### 🔤 Full-Text Search
+### Full-Text Search
 
 Use `_search` to perform a `LIKE` search across all string-type columns simultaneously:
 
@@ -479,7 +479,7 @@ GET /products?_search=wireless+headphones
 
 This generates a `WHERE (col1 LIKE '%wireless headphones%' OR col2 LIKE '%wireless headphones%' OR ...)` query across every searchable text column defined in your schema.
 
-### 🔗 OR Groups
+### OR Groups
 
 Combine multiple conditions with OR logic using the `_or` parameter:
 
@@ -499,7 +499,7 @@ You can mix multiple operators within each group:
 GET /products?_or[0][price][lt]=50&_or[1][price][gt]=500
 ```
 
-### 📥 Eager Loading (Relations)
+### Eager Loading (Relations)
 
 Load Eloquent relations on-the-fly without modifying the controller:
 
@@ -514,13 +514,13 @@ Apigator validates each relation segment against the model before passing it to 
 
 ---
 
-## 🗺️ Schema Customization (`mapSchema`)
+## Schema Customization (`mapSchema`) 🗺️
 
 The `mapSchema()` method is the heart of Apigator's query engine. It lets you control exactly which columns are selected, which tables are joined, and which conditions are always applied — all without touching controller or service logic.
 
 The generated version selects only the table's own columns, but you can freely extend it.
 
-### 📝 Defining Fields
+### Defining Fields
 
 Each entry in `'field'` maps an alias to a `column` expression:
 
@@ -553,7 +553,7 @@ public static function mapSchema(array $params = []): array
 
 > **Searchable columns:** Only `string`-type fields are included in `_search` full-text queries. Set `type` accurately for correct behavior.
 
-### 🔗 Adding JOINs
+### Adding JOINs
 
 Extend the `'join'` array to join related tables:
 
@@ -584,7 +584,7 @@ Then add the joined columns to `'field'`:
 
 Supported join types: `left`, `right`, `inner` (default).
 
-### 🛡️ Static WHERE Conditions
+### Static WHERE Conditions
 
 Use `'where'` to apply conditions that are always active, regardless of request parameters:
 
@@ -597,7 +597,7 @@ Use `'where'` to apply conditions that are always active, regardless of request 
 ],
 ```
 
-### 💾 Raw SQL Expressions
+### Raw SQL Expressions
 
 Set `is_raw => true` to use any SQL expression as a column:
 
@@ -618,7 +618,7 @@ Set `is_raw => true` to use any SQL expression as a column:
 ],
 ```
 
-### ⚡ Dynamic Context in `mapSchema`
+### Dynamic Context in `mapSchema`
 
 The `$params` arguments are passed in from the request, allowing you to build dynamic schemas:
 
@@ -651,7 +651,7 @@ public static function mapSchema(array $params = []): array
 
 ---
 
-## 📊 DataTables Integration
+## DataTables Integration 📊
 
 Every generated controller includes a `datatable` action that accepts a standard DataTables server-side `POST` payload:
 
@@ -692,7 +692,7 @@ The endpoint supports:
 
 ---
 
-## 🔄 Model Revamping
+## Model Revamping 🔄
 
 When your database schema changes (new columns added, types changed, columns removed), use `--revamp-table` to surgically update your existing model without losing any manual customizations:
 
@@ -732,7 +732,7 @@ php artisan apigator:generate --revamp-table=products
 
 ---
 
-## 🚨 Exception Handling
+## Exception Handling 🚨
 
 Apigator ships with two exception classes that integrate with Laravel's exception handler to return consistent JSON error responses automatically.
 
@@ -818,7 +818,7 @@ throw ApigatorValidationException::withErrors([
 
 ---
 
-## 🧩 Traits Reference
+## Traits Reference 🧩
 
 ### `ApiModelTrait`
 
@@ -879,7 +879,7 @@ $this->validationErrorResponse($validationException);
 
 ---
 
-## 🗂️ Configuration Reference
+## Configuration Reference 🗂️
 
 | Key | Type | Default | Description |
 |---|---|---|---|
@@ -893,7 +893,7 @@ $this->validationErrorResponse($validationException);
 
 ---
 
-## 📄 License
+## License 📄
 
 This package is open-source software licensed under the [MIT License](https://opensource.org/licenses/MIT).
 
