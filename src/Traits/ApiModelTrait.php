@@ -33,6 +33,11 @@ trait ApiModelTrait
 
         // Apply custom selects
         if (!empty($fields)) {
+            if (!empty($params['select'])) {
+                $selectKeys = array_map('trim', explode(',', $params['select']));
+                $fields = array_intersect_key($fields, array_flip($selectKeys));
+            }
+
             $selects = SchemaQueryBuilder::buildSelectsCompat($fields);
             $query->select($selects);
         }
