@@ -143,7 +143,7 @@ trait ApiModelTrait
     /**
      * Apply DataTables global search across all searchable columns.
      */
-    protected static function applyDatatableSearch(Builder $query, array $params): void
+    protected static function applyDatatablesSearch(Builder $query, array $params): void
     {
         $searchValue = $params['search']['value'] ?? '';
 
@@ -152,7 +152,7 @@ trait ApiModelTrait
         }
 
         // Get searchable columns from schema or table
-        $searchable = self::getDatatableSearchableColumns($params);
+        $searchable = self::getDatatablesSearchableColumns($params);
         if (empty($searchable)) {
             return;
         }
@@ -187,7 +187,7 @@ trait ApiModelTrait
     /**
      * Apply DataTables ORDER BY.
      */
-    protected static function applyDatatableOrder(Builder $query, array $params): void
+    protected static function applyDatatablesOrder(Builder $query, array $params): void
     {
         $orders  = $params['order'] ?? [];
         $columns = $params['columns'] ?? [];
@@ -240,7 +240,7 @@ trait ApiModelTrait
     /**
      * Get columns eligible for DataTables search.
      */
-    protected static function getDatatableSearchableColumns(array $params): array
+    protected static function getDatatablesSearchableColumns(array $params): array
     {
         $columns = $params['columns'] ?? [];
         $result  = [];

@@ -76,7 +76,7 @@ class ServiceGenerator
              *  - createRecord()  → validated create
              *  - updateRecord()  → validated patch
              *  - deleteRecord()  → soft-delete aware delete
-             *  - getDatatable()  → server-side DataTables response
+             *  - getDatatables()  → server-side DataTables response
              *
              */
         
@@ -122,7 +122,7 @@ class ServiceGenerator
              * @param  array \$params  DataTables POST parameters + custom user params
              * @return array
              */
-            public static function getDatatable(array \$params = []): array
+            public static function getDatatables(array \$params = []): array
             {
                 \$draw    = (int) (\$params['draw'] ?? 1);
                 \$start   = (int) (\$params['start'] ?? 0);
@@ -135,8 +135,8 @@ class ServiceGenerator
 
                 // Apply DataTables search / column filters
                 \$filteredQuery = {$modelName}::buildBaseQuery(\$params);
-                {$modelName}::applyDatatableSearch(\$filteredQuery, \$params);
-                {$modelName}::applyDatatableOrder(\$filteredQuery, \$params);
+                {$modelName}::applyDatatablesSearch(\$filteredQuery, \$params);
+                {$modelName}::applyDatatablesOrder(\$filteredQuery, \$params);
 
                 \$recordsFiltered = (clone \$filteredQuery)->count();
 

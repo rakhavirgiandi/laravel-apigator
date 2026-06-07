@@ -166,12 +166,12 @@ class {$controllerName} extends Controller
     }
 
     // -------------------------------------------------------------------------
-    // POST /slugs_datatable  (DataTables server-side)
+    // POST /slugs_datatables  (DataTables server-side)
     // -------------------------------------------------------------------------
 
     /**
      * @OA\\Post(
-     *     path="/{$this->toSlug($serviceName)}_datatable",
+     *     path="/{$this->toSlug($serviceName)}_datatables",
      *     summary="DataTables server-side for {$serviceName}",
      *     @OA\\RequestBody(
      *         @OA\\JsonContent(
@@ -186,9 +186,9 @@ class {$controllerName} extends Controller
      *     @OA\\Response(response=200, description="DataTables response")
      * )
      */
-    public function datatable(Request \$request): JsonResponse
+    public function datatables(Request \$request): JsonResponse
     {
-        \$result = {$serviceName}::getDatatable(\$request->all());
+        \$result = {$serviceName}::getDatatables(\$request->all());
         return response()->json(\$result);
     }
 }
