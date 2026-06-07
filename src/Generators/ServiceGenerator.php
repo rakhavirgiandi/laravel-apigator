@@ -165,18 +165,21 @@ class ServiceGenerator
             {
                 \$query = {$modelName}::buildBaseQuery(\$params);
 
-                \$column = \$params['column'] ?? 'id';
+                \$columnParams = \$params['column'] ?? 'id';
 
                 // Validate column exists to prevent injection
-                \$allowedColumns = Schema::getColumnListing((new {$modelName})->getTable());
-                if (!in_array(\$column, \$allowedColumns, true)) {
+                \$columns = {$modelName}::getColumnMapSchemaByAlias(\$params);
+
+                if (empty(\$columns[\$columnParams])) {
                     throw new ApigatorValidationException(
-                        message:   "Column {\$column} does not exist.",
+                        message:   "Column {\$columnParams} does not exist.",
                         errorCode: 'COLUMN_NOT_FOUND'
                     );
                 }
+                    
+                \$column = \$columns[\$columnParams];
 
-                \$data = \$query->where((new {$modelName})->getTable() . ".{\$column}", \$id)->first();
+                \$data = \$query->where(\$column, \$id)->first();
                 
                 if (!\$data) {
                     throw ApigatorException::notFound(
