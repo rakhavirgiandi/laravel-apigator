@@ -73,19 +73,34 @@ class DynamicQueryParser
      *
      * @param  Builder $query
      * @param  array   $params        Raw request()->all() or subset
-     * @param  array   $allowedColumns Whitelist of column names. Empty = allow all schema columns.
+     * @param  array   $schema Whitelist of column names. Empty = allow all schema columns.
      * @param  array   $searchableColumns Columns to search with _search param
      */
     public static function apply(
         Builder $query,
         array $params,
-        array $allowedColumns = [],
+        array $schema,
         array $searchableColumns = []
     ): Builder {
-        $tableColumns = $allowedColumns ?: self::getTableColumns($query);
+        // $tableColumns = $allowedColumns ?: self::getTableColumns($query);
+        $field = $schema["field"];
+
+        $tableColumns = collect($field)->mapWithKeys(function ($item, $alias) {
+            return [
+                $alias => $item['column']
+            ];
+
+        })->toArray();
 
         foreach ($params as $key => $value) {
-            if (in_array($key, self::RESERVED, true)) {
+
+            if (empty($tableColumns[$key])) {
+                continue;
+            }
+
+            $col = $tableColumns[$key];
+
+            if (in_array($col, self::RESERVED, true)) {
                 continue;
             }
 
@@ -97,11 +112,11 @@ class DynamicQueryParser
             if (is_array($value)) {
                 // e.g. ?column[eq]=value
                 foreach ($value as $op => $val) {
-                    self::applyFilter($query, $key, $op, $val, $tableColumns);
+                    self::applyFilter($query, $col, $op, $val, $tableColumns);
                 }
             } else {
                 // e.g. ?column=value  → implicit 'eq'
-                self::applyFilter($query, $key, 'eq', $value, $tableColumns);
+                self::applyFilter($query, $col, 'eq', $value, $tableColumns);
             }
         }
 
@@ -109,9 +124,9 @@ class DynamicQueryParser
         if (!empty($params['_search']) && !empty($searchableColumns)) {
             $term = $params['_search'];
             $query->where(function (Builder $q) use ($term, $searchableColumns, $tableColumns) {
-                foreach ($searchableColumns as $col) {
-                    if (self::isColumnAllowed($col, $tableColumns)) {
-                        $safeCol = self::sanitizeColumn($col);
+                foreach ($searchableColumns as $searchableCol) {
+                    if (self::isColumnAllowed($searchableCol, $tableColumns)) {
+                        $safeCol = self::sanitizeColumn($searchableCol);
                         $q->orWhere($safeCol, 'LIKE', '%' . self::escapeLike($term) . '%');
                     }
                 }
@@ -211,7 +226,7 @@ class DynamicQueryParser
                 $part = substr($part, 1);
             }
 
-            if (self::isColumnAllowed($part, $allowedColumns)) {
+            if (!empty($columns[$part])) {
                 $query->orderBy(self::sanitizeColumn($part), $direction);
             }
         }
