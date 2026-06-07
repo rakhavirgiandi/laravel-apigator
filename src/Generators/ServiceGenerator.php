@@ -128,13 +128,14 @@ class ServiceGenerator
                 \$start   = (int) (\$params['start'] ?? 0);
                 \$length  = (int) (\$params['length'] ?? 10);
                 \$length  = max(1, min(\$length, 1000));
+                \$data    = !empty(\$params['data']) ? \$params['data'] : [];
 
                 // Count total before filters
                 \$baseQuery = {$modelName}::buildBaseQuery([]);
                 \$recordsTotal = (clone \$baseQuery)->count();
 
                 // Apply DataTables search / column filters
-                \$filteredQuery = {$modelName}::buildBaseQuery(\$params);
+                \$filteredQuery = {$modelName}::buildBaseQuery(\$data);
                 {$modelName}::applyDatatablesSearch(\$filteredQuery, \$params);
                 {$modelName}::applyDatatablesOrder(\$filteredQuery, \$params);
 
