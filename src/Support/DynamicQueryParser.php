@@ -79,53 +79,45 @@ class DynamicQueryParser
     public static function apply(
         Builder $query,
         array $params,
-        array $schema,
+        array $columnMapSchemaByAlias,
         array $searchableColumns = []
     ): Builder {
         // $tableColumns = $allowedColumns ?: self::getTableColumns($query);
-        $field = $schema["field"];
-
-        $tableColumns = collect($field)->mapWithKeys(function ($item, $alias) {
-            return [
-                $alias => $item['column']
-            ];
-
-        })->toArray();
 
         foreach ($params as $key => $value) {
 
-            if (empty($tableColumns[$key])) {
+            if (empty($columnMapSchemaByAlias[$key])) {
                 continue;
             }
 
-            $col = $tableColumns[$key];
+            $col = $columnMapSchemaByAlias[$key];
 
             if (in_array($col, self::RESERVED, true)) {
                 continue;
             }
 
             if ($key === '_or') {
-                self::applyOrGroup($query, $value, $tableColumns);
+                self::applyOrGroup($query, $value, $columnMapSchemaByAlias);
                 continue;
             }
 
             if (is_array($value)) {
                 // e.g. ?column[eq]=value
                 foreach ($value as $op => $val) {
-                    self::applyFilter($query, $col, $op, $val, $tableColumns);
+                    self::applyFilter($query, $col, $op, $val, $columnMapSchemaByAlias);
                 }
             } else {
                 // e.g. ?column=value  → implicit 'eq'
-                self::applyFilter($query, $col, 'eq', $value, $tableColumns);
+                self::applyFilter($query, $col, 'eq', $value, $columnMapSchemaByAlias);
             }
         }
 
         // _search
         if (!empty($params['_search']) && !empty($searchableColumns)) {
             $term = $params['_search'];
-            $query->where(function (Builder $q) use ($term, $searchableColumns, $tableColumns) {
+            $query->where(function (Builder $q) use ($term, $searchableColumns, $columnMapSchemaByAlias) {
                 foreach ($searchableColumns as $searchableCol) {
-                    if (self::isColumnAllowed($searchableCol, $tableColumns)) {
+                    if (self::isColumnAllowed($searchableCol, $columnMapSchemaByAlias)) {
                         $safeCol = self::sanitizeColumn($searchableCol);
                         $q->orWhere($safeCol, 'LIKE', '%' . self::escapeLike($term) . '%');
                     }
@@ -135,7 +127,7 @@ class DynamicQueryParser
 
         // _sort
         if (!empty($params['_sort'])) {
-            self::applySort($query, $params['_sort'], $tableColumns);
+            self::applySort($query, $params['_sort'], $columnMapSchemaByAlias);
         }
 
         return $query;
@@ -210,7 +202,7 @@ class DynamicQueryParser
         });
     }
 
-    protected static function applySort(Builder $query, mixed $sort, array $allowedColumns): void
+    protected static function applySort(Builder $query, mixed $sort, array $columns): void
     {
         $parts = is_array($sort) ? $sort : explode(',', $sort);
 
