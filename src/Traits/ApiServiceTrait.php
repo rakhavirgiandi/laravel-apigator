@@ -1,6 +1,6 @@
 <?php
 
-namespace Virgiandi\Apigator\Support;
+namespace Virgiandi\Apigator\Traits;
 
 use Illuminate\Database\Connection;
 use Illuminate\Support\Facades\DB;
