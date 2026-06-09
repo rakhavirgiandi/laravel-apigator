@@ -19,6 +19,7 @@ use Illuminate\Support\Str;
  *  ?column[lt]=value              → WHERE column < value
  *  ?column[lte]=value             → WHERE column <= value
  *  ?column[like]=value            → WHERE column LIKE %value%
+ *  ?column[ilike]=value           → WHERE column ILIKE %value%
  *  ?column[starts]=value          → WHERE column LIKE value%
  *  ?column[ends]=value            → WHERE column LIKE %value
  *  ?column[in]=a,b,c              → WHERE column IN (a, b, c)
@@ -58,6 +59,24 @@ class DynamicQueryParser
         'date_to'   => '<=',
     ];
 
+    protected static function getDriver(Builder $query): string
+    {
+        static $cache = [];
+
+        $name = $query->getConnection()->getName();
+
+        return $cache[$name] ??= $query->getConnection()->getDriverName();
+    }
+
+    protected static function resolveOperator(string $operator, string $driver): ?string
+    {
+        if ($operator === 'ilike') {
+            return $driver === 'pgsql' ? 'ILIKE' : 'LIKE';
+        }
+
+        return static::OPERATORS[$operator] ?? null;
+    }
+
     /**
      * Reserved parameter names (not treated as column filters)
      */
@@ -73,7 +92,7 @@ class DynamicQueryParser
      *
      * @param  Builder $query
      * @param  array   $params        Raw request()->all() or subset
-     * @param  array   $schema Whitelist of column names. Empty = allow all schema columns.
+     * @param  array   $columnMapSchemaByAlias Whitelist of column names. Empty = allow all schema columns.
      * @param  array   $searchableColumns Columns to search with _search param
      */
     public static function apply(
@@ -115,11 +134,13 @@ class DynamicQueryParser
         // _search
         if (!empty($params['_search']) && !empty($searchableColumns)) {
             $term = $params['_search'];
-            $query->where(function (Builder $q) use ($term, $searchableColumns, $columnMapSchemaByAlias) {
+            $driver      = self::getDriver($query);
+            $sqlOperator = self::resolveOperator('ilike', $driver);
+            $query->where(function (Builder $q) use ($term, $searchableColumns, $columnMapSchemaByAlias, $sqlOperator) {
                 foreach ($searchableColumns as $searchableCol) {
                     if (self::isColumnAllowed($searchableCol, $columnMapSchemaByAlias)) {
                         $safeCol = self::sanitizeColumn($searchableCol);
-                        $q->orWhere($safeCol, 'LIKE', '%' . self::escapeLike($term) . '%');
+                        $q->orWhere($safeCol, $sqlOperator, '%' . self::escapeLike($term) . '%');
                     }
                 }
             });
@@ -145,18 +166,21 @@ class DynamicQueryParser
             return;
         }
 
-        $op = strtolower(trim($operator));
+        $op          = strtolower(trim($operator));
+        $driver      = self::getDriver($query);
+        $sqlOperator = self::resolveOperator($op, $driver);
 
-        if (!array_key_exists($op, self::OPERATORS)) {
-            return; // Unknown operator – skip silently (no injection)
+        if (!$sqlOperator) {
+            return;
         }
 
         $safeCol = self::sanitizeColumn($column);
 
         match ($op) {
-            'like'     => $query->where($safeCol, 'LIKE', '%' . self::escapeLike($value) . '%'),
-            'starts'   => $query->where($safeCol, 'LIKE', self::escapeLike($value) . '%'),
-            'ends'     => $query->where($safeCol, 'LIKE', '%' . self::escapeLike($value)),
+            'ilike'     => $query->where($safeCol, $sqlOperator, '%' . self::escapeLike($value) . '%'),
+            'like'     => $query->where($safeCol, $sqlOperator, '%' . self::escapeLike($value) . '%'),
+            'starts'   => $query->where($safeCol, $sqlOperator, self::escapeLike($value) . '%'),
+            'ends'     => $query->where($safeCol, $sqlOperator, '%' . self::escapeLike($value)),
             'in'       => $query->whereIn($safeCol, self::parseList($value)),
             'not_in'   => $query->whereNotIn($safeCol, self::parseList($value)),
             'null'     => $query->whereNull($safeCol),
@@ -164,7 +188,7 @@ class DynamicQueryParser
             'between'  => self::applyBetween($query, $safeCol, $value),
             'date_from' => $query->whereDate($safeCol, '>=', $value),
             'date_to'   => $query->whereDate($safeCol, '<=', $value),
-            default    => $query->where($safeCol, self::OPERATORS[$op], $value),
+            default    => $query->where($safeCol, $sqlOperator, $value),
         };
     }
 
