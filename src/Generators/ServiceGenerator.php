@@ -60,12 +60,12 @@ class ServiceGenerator
         use Illuminate\Support\Facades\Schema;
         use Illuminate\Support\Facades\DB;
         use Illuminate\Support\Facades\Validator;
-        use Virgiandi\Apigator\Traits\ApiModelTrait;
+        use Virgiandi\Apigator\Traits\ApiServiceTrait;
 
         class {$serviceName}
         {   
 
-            use ApiModelTrait;
+            use ApiServiceTrait;
 
             protected static function modelClass(): string
             {
