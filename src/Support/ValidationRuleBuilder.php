@@ -3,6 +3,7 @@
 namespace Virgiandi\Apigator\Support;
 
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Unique;
 
 /**
  * ValidationRuleBuilder
@@ -17,6 +18,7 @@ use Illuminate\Validation\Rule;
  *   - length     (int)     Character/byte length (optional)
  *   - unsigned   (bool)    Whether numeric column is unsigned (optional)
  *   - values     (array)   Allowed values for ENUM/SET columns (optional)
+ *   - unique     (bool)    Whether the column has a unique constraint (optional)
  */
 class ValidationRuleBuilder
 {
@@ -44,11 +46,17 @@ class ValidationRuleBuilder
     ): array {
         $rules = [];
 
+        $uniqueColumns = ($table !== null) ? self::getUniqueColumns($table) : [];
+
         foreach ($columns as $col) {
             $name = $col['name'] ?? '';
 
             if (in_array($name, self::SKIP_COLUMNS, true)) {
                 continue;
+            }
+
+            if (!isset($col['unique']) && in_array($name, $uniqueColumns, true)) {
+                $col['unique'] = true;
             }
 
             $rule = self::buildRule($col, $isUpdate, $table, $ignoreId);
@@ -76,6 +84,7 @@ class ValidationRuleBuilder
         $length   = isset($col['length']) ? (int) $col['length'] : null;
         $unsigned = $col['unsigned'] ?? false;
         $values   = $col['values'] ?? [];
+        $unique   = $col['unique'] ?? false;
         $rule     = [];
 
         // ── 1. Presence rule ──────────────────────────────────────────────
@@ -113,7 +122,64 @@ class ValidationRuleBuilder
         // ── 6. Append name-based extra rules ─────────────────────────────
         $rule = array_merge($rule, $nameRules);
 
+        // ── 7. Unique constraint from column metadata ─────────────────────
+        // Only added when: column is unique, table is known, and no unique
+        // rule is already present (e.g. from nameToRule() for email/slug/username).
+        if ($unique && $table !== null && !self::hasUniqueRule($rule)) {
+            $uniqueRule = Rule::unique($table, $name);
+            if ($ignoreId !== null) {
+                $uniqueRule = $uniqueRule->ignore($ignoreId);
+            }
+            $rule[] = $uniqueRule;
+        }
+
         return $rule;
+    }
+
+    /**
+ * Resolve unique column names from single-column unique indexes.
+ * Skips composite unique indexes (multi-column) as they can't map to a single field rule.
+ *
+ * @param  string $table
+ * @return string[]
+ */
+protected static function getUniqueColumns(string $table): array
+{
+    $uniqueColumns = [];
+
+    try {
+        $indexes = \Illuminate\Support\Facades\Schema::getIndexes($table);
+
+        foreach ($indexes as $index) {
+            // Only single-column unique indexes are mappable to a per-field rule
+            if (!empty($index['unique']) && count($index['columns']) === 1) {
+                $uniqueColumns[] = $index['columns'][0];
+            }
+        }
+    } catch (\Throwable $e) {
+        // Silently ignore if driver doesn't support getIndexes()
+    }
+
+    return $uniqueColumns;
+}
+
+    /**
+     * Check whether a rule array already contains a unique rule.
+     * Prevents duplicate unique rules when nameToRule() already added one
+     * (e.g. for email, slug, username columns).
+     */
+    public static function hasUniqueRule(array $rules): bool
+    {
+        foreach ($rules as $r) {
+            if ($r instanceof Unique) {
+                return true;
+            }
+            if (is_string($r) && str_starts_with($r, 'unique:')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -320,7 +386,7 @@ class ValidationRuleBuilder
         $lower = strtolower($name);
 
         // ── Email → overrides 'string' with specific format rule ─────────
-        if (str_contains($lower, 'email')) {
+        if ($lower == 'email') {
             $rules[] = 'string';
             $rules[] = 'email:rfc,dns';
             if ($table) {
@@ -439,22 +505,55 @@ class ValidationRuleBuilder
     /**
      * Convert rules array to PHP source code string.
      * Handles plain strings and Rule objects.
-     *
-     * e.g. ['required', 'string', Rule::unique('users','email')]
-     *   → "'required', 'string', Rule::unique('users', 'email')"
      */
     public static function rulesToCode(array $rules): string
     {
         $parts = array_map(function ($r) {
+            if ($r instanceof \Illuminate\Validation\Rules\Unique) {
+                return self::uniqueRuleToCode($r);
+            }
+
             if (is_string($r)) {
                 return "'{$r}'";
             }
+
             if (is_object($r)) {
                 return (string) $r;
             }
+
             return var_export($r, true);
         }, $rules);
 
         return implode(', ', $parts);
+    }
+
+    /**
+     * Convert a Rule::unique() instance to PHP source code string
+     * by reflecting its internal properties.
+     */
+    protected static function uniqueRuleToCode(\Illuminate\Validation\Rules\Unique $rule): string
+    {
+        $ref   = new \ReflectionObject($rule);
+        $get   = function (string $prop) use ($rule, $ref) {
+            $p = $ref->getProperty($prop);
+            $p->setAccessible(true);
+            return $p->getValue($rule);
+        };
+
+        $table  = $get('table');   // e.g. "contacts"
+        $column = $get('column');  // e.g. "email"
+        $ignore = $get('ignore');  // e.g. 5 or null
+
+        $code = "Rule::unique('{$table}', '{$column}')";
+
+        if ($ignore !== null) {
+            $ignoreId      = is_array($ignore) ? $ignore[0] : $ignore;
+            $ignoreColumn  = is_array($ignore) ? ($ignore[1] ?? 'id') : 'id';
+            $code .= $ignoreColumn === 'id'
+                ? "->ignore({$ignoreId})"
+                : "->ignore({$ignoreId}, '{$ignoreColumn}')";
+        }
+
+        return $code;
     }
 }

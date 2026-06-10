@@ -10,6 +10,22 @@ class ModelGenerator
 {
     public function __construct(protected Command $command) {}
 
+        /**
+     * Check whether any column rules contain a Rule::unique() instance.
+     * Used by the code generator to decide whether to add:
+     *   use Illuminate\Validation\Rules\Unique;
+     */
+    function needsUniqueImport(array $rulesMap): bool
+    {
+        foreach ($rulesMap as $rules) {
+            if (ValidationRuleBuilder::hasUniqueRule($rules)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function generate(array $context): void
     {
         $table         = $context['table'];
@@ -44,8 +60,18 @@ class ModelGenerator
     ): string {
         $fillable    = $this->buildFillable($columns);
         $casts       = $this->buildCasts($columns);
-        $createRules = $this->buildRules($columns, false);
-        $updateRules = $this->buildRules($columns, true);
+
+        $createRulesMap = ValidationRuleBuilder::build($columns, false, $table);
+        $updateRulesMap = ValidationRuleBuilder::build($columns, true,  $table);
+
+        $createRules = $this->buildRules($createRulesMap);
+        $updateRules = $this->buildRules($updateRulesMap);
+        
+        $needsRule = self::needsUniqueImport($createRulesMap)
+                  || self::needsUniqueImport($updateRulesMap);
+
+        $ruleImport = $needsRule ? "use Illuminate\\Validation\\Rule;\n" : '';
+
         $mapSchema   = $this->buildMapSchema($table, $columns);
         $hasSoftDelete = $this->hasSoftDelete($columns);
         $softDeleteUse = $hasSoftDelete ? "use Illuminate\\Database\\Eloquent\\SoftDeletes;" : '';
@@ -67,6 +93,7 @@ namespace {$namespace};
 use Illuminate\Database\Eloquent\Model;
 use Virgiandi\Apigator\Traits\ApiModelTrait;
 use Illuminate\Support\Facades\Schema;
+{$ruleImport}
 {$softDeleteUse}
 
 class {$modelName} extends Model
@@ -78,7 +105,7 @@ class {$modelName} extends Model
     protected \$fillable = [{$fillable}
     ];
 
-{$casts}
+    {$casts}
 
     // Relations ...
 
@@ -176,11 +203,11 @@ PHP;
         return "    protected \$casts = [\n" . implode("\n", $lines) . "\n    ];\n";
     }
 
-    protected function buildRules(array $columns, bool $isUpdate): string
+    protected function buildRules($rulesMap): string
     {
-        $rules = ValidationRuleBuilder::build($columns, $isUpdate);
+        
         $lines = [];
-        foreach ($rules as $col => $rule) {
+        foreach ($rulesMap as $col => $rule) {
             $ruleStr = ValidationRuleBuilder::rulesToCode($rule);
             $lines[] = "\n            '{$col}' => [{$ruleStr}],";
         }
