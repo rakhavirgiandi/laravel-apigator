@@ -377,10 +377,10 @@ protected static function getUniqueColumns(string $table): array
      *
      * @param  string      $name
      * @param  string|null $table
-     * @param  int|null    $ignoreId
+     * @param  int|float|string|null    $ignoreParams
      * @return array{array, bool}
      */
-    protected static function nameToRule(string $name, ?string $table, ?int $ignoreId): array
+    protected static function nameToRule(string $name, ?string $table, int|float|string|null $ignoreParams): array
     {
         $rules = [];
         $lower = strtolower($name);
@@ -391,7 +391,7 @@ protected static function getUniqueColumns(string $table): array
             $rules[] = 'email:rfc,dns';
             if ($table) {
                 $unique = Rule::unique($table, $name);
-                if ($ignoreId !== null) $unique = $unique->ignore($ignoreId);
+                if ($ignoreParams !== null) $unique = $unique->ignore($ignoreParams);
                 $rules[] = $unique;
             }
             return [$rules, true];
@@ -432,7 +432,7 @@ protected static function getUniqueColumns(string $table): array
             $r = ['string', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/'];
             if ($table) {
                 $unique = Rule::unique($table, $name);
-                if ($ignoreId !== null) $unique = $unique->ignore($ignoreId);
+                if ($ignoreParams !== null) $unique = $unique->ignore($ignoreParams);
                 $r[] = $unique;
             }
             return [$r, true];
@@ -443,7 +443,7 @@ protected static function getUniqueColumns(string $table): array
             $r = ['string', 'min:3', 'max:30', 'regex:/^[a-zA-Z0-9_.-]+$/'];
             if ($table) {
                 $unique = Rule::unique($table, $name);
-                if ($ignoreId !== null) $unique = $unique->ignore($ignoreId);
+                if ($ignoreParams !== null) $unique = $unique->ignore($ignoreParams);
                 $r[] = $unique;
             }
             return [$r, true];
@@ -547,11 +547,11 @@ protected static function getUniqueColumns(string $table): array
         $code = "Rule::unique('{$table}', '{$column}')";
 
         if ($ignore !== null) {
-            $ignoreId      = is_array($ignore) ? $ignore[0] : $ignore;
+            $ignoreParams  = is_array($ignore) ? $ignore[0] : $ignore;
             $ignoreColumn  = is_array($ignore) ? ($ignore[1] ?? 'id') : 'id';
             $code .= $ignoreColumn === 'id'
-                ? "->ignore({$ignoreId})"
-                : "->ignore({$ignoreId}, '{$ignoreColumn}')";
+                ? "->ignore({$ignoreParams})"
+                : "->ignore({$ignoreParams}, '{$ignoreColumn}')";
         }
 
         return $code;
