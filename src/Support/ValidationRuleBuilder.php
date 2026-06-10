@@ -35,14 +35,14 @@ class ValidationRuleBuilder
      * @param  array       $columns      Column info from Schema::getColumns()
      * @param  bool        $isUpdate     If true, make all rules optional (for PATCH)
      * @param  string|null $table        Table name for unique() rules (null = skip unique)
-     * @param  int|null    $ignoreId     Row ID to ignore in unique checks (for update routes)
+     * @param  int|float|string|null    $ignoreParams     Params to ignore in unique checks (for update routes)
      * @return array<string, array>
      */
     public static function build(
         array $columns,
         bool $isUpdate = false,
         ?string $table = null,
-        ?int $ignoreId = null
+        int|float|string|null $ignoreParams = null
     ): array {
         $rules = [];
 
@@ -59,7 +59,7 @@ class ValidationRuleBuilder
                 $col['unique'] = true;
             }
 
-            $rule = self::buildRule($col, $isUpdate, $table, $ignoreId);
+            $rule = self::buildRule($col, $isUpdate, $table, $ignoreParams);
 
             if (!empty($rule)) {
                 $rules[$name] = $rule;
@@ -76,7 +76,7 @@ class ValidationRuleBuilder
         array $col,
         bool $isUpdate,
         ?string $table,
-        ?int $ignoreId
+        int|float|string $ignoreParams = null
     ): array {
         $name     = $col['name'] ?? '';
         $type     = strtolower($col['type'] ?? 'string');
@@ -106,7 +106,7 @@ class ValidationRuleBuilder
         }
 
         // ── 3. Name heuristics (run first to detect type overrides) ──────
-        [$nameRules, $typeOverride] = self::nameToRule($name, $table, $ignoreId);
+        [$nameRules, $typeOverride] = self::nameToRule($name, $table, $ignoreParams);
 
         // ── 4. Type-based rules (skip if name fully overrides the type) ──
         if (!$typeOverride) {
@@ -127,8 +127,8 @@ class ValidationRuleBuilder
         // rule is already present (e.g. from nameToRule() for email/slug/username).
         if ($unique && $table !== null && !self::hasUniqueRule($rule)) {
             $uniqueRule = Rule::unique($table, $name);
-            if ($ignoreId !== null) {
-                $uniqueRule = $uniqueRule->ignore($ignoreId);
+            if ($ignoreParams !== null) {
+                $uniqueRule = $uniqueRule->ignore($ignoreParams);
             }
             $rule[] = $uniqueRule;
         }

@@ -62,7 +62,7 @@ class ModelGenerator
         $casts       = $this->buildCasts($columns);
 
         $createRulesMap = ValidationRuleBuilder::build($columns, false, $table);
-        $updateRulesMap = ValidationRuleBuilder::build($columns, true,  $table);
+        $updateRulesMap = ValidationRuleBuilder::build($columns, true,  $table, "\$id");
 
         $createRules = $this->buildRules($createRulesMap);
         $updateRules = $this->buildRules($updateRulesMap);
@@ -77,7 +77,7 @@ class ModelGenerator
         $softDeleteUse = $hasSoftDelete ? "use Illuminate\\Database\\Eloquent\\SoftDeletes;" : '';
         $softDeleteImport = $hasSoftDelete ? 'SoftDeletes' : '';
 
-        $modelConnection = $connection && $connection != config('database.default') ? "\nprotected \$connection = '{$connection}';\n" : '';
+        $modelConnection = $connection && $connection != config('database.default') ? "\n   protected \$connection = '{$connection}';\n" : '';
 
         $trait = "ApiModelTrait";
 
@@ -105,7 +105,7 @@ class {$modelName} extends Model
     protected \$fillable = [{$fillable}
     ];
 
-    {$casts}
+{$casts}
 
     // Relations ...
 
@@ -125,7 +125,7 @@ class {$modelName} extends Model
     /**
      * Validation rules for PATCH (update).
      */
-    public static function updateRules(): array
+    public static function updateRules(\$id): array
     {
         return [{$updateRules}
         ];

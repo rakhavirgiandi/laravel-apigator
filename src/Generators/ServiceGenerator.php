@@ -247,7 +247,7 @@ class ServiceGenerator
              */
             public static function updateRecord(mixed \$id, array \$params): ?{$modelName}
             {   
-                \$validator = Validator::make(\$params, {$modelName}::createRules());
+                \$validator = Validator::make(\$params, {$modelName}::updateRules(\$id));
 
                 if (\$validator->fails()) {
                     throw ApigatorValidationException::fromValidator(\$validator);
