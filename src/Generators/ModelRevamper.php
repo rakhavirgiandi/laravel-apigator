@@ -2,6 +2,8 @@
 
 namespace Virgiandi\Apigator\Generators;
 
+use Virgiandi\Apigator\Support\ValidationRuleBuilder;
+
 /**
  * ModelRevamper
  *
@@ -29,10 +31,11 @@ class ModelRevamper extends ModelGenerator
 
     public function revamp(array $context): void
     {
-        $modelName = $context['modelName'];
-        $modelDir  = $context['modelDir'];
-        $columns   = $context['columns'];
-        $table     = $context['table'];
+        $modelName  = $context['modelName'];
+        $modelDir   = $context['modelDir'];
+        $columns    = $context['columns'];
+        $table      = $context['table'];
+        $connection = $context['connection'];
 
         $path = app_path(trim($modelDir, '/') . "/{$modelName}.php");
 
@@ -49,8 +52,8 @@ class ModelRevamper extends ModelGenerator
 
         $content = $this->replaceFillableBlock($content, $columns);
         $content = $this->replaceCastsBlock($content, $columns);
-        $content = $this->replaceCreateRulesBlock($content, $columns);
-        $content = $this->replaceUpdateRulesBlock($content, $columns);
+        $content = $this->replaceCreateRulesBlock($content, $columns, $table, $connection);
+        $content = $this->replaceUpdateRulesBlock($content, $columns, $table, $connection);
         $content = $this->replaceMapSchemaFields($content, $columns, $table);
 
         if ($content === $original) {
@@ -134,7 +137,7 @@ class ModelRevamper extends ModelGenerator
      * Uses bracket-depth counting so nested arrays in rule definitions are
      * handled correctly.
      */
-    protected function replaceCreateRulesBlock(string $content, array $columns): string
+    protected function replaceCreateRulesBlock(string $content, array $columns, string $table, ?string $connection = null): string
     {
         // Locate "return [" inside createRules()
         if (!preg_match(
@@ -156,20 +159,24 @@ class ModelRevamper extends ModelGenerator
             return $content;
         }
 
+        $isConeectionDefault = $connection && $connection != config('database.default') ? true : false;
+
+        $createRulesMap = ValidationRuleBuilder::build($columns, $table, $isConeectionDefault ? $connection : null);
+
         // buildRules() returns "\n            'col' => [...],\n        "
         // which already contains the correct trailing indent before "]"
-        $newRules = $this->buildRules($columns, false);
+        $newRules = $this->buildRules($createRulesMap);
 
         return substr($content, 0, $openBracketPos + 1)
             . $newRules
             . substr($content, $closeBracketPos);
     }
 
-    protected function replaceUpdateRulesBlock(string $content, array $columns): string
+    protected function replaceUpdateRulesBlock(string $content, array $columns, string $table, ?string $connection = null): string
     {
         // Locate "return [" inside updateRules()
         if (!preg_match(
-            '/public static function updateRules\(\): array\s*\{.*?return\s*\[/s',
+            '/public\s+static\s+function\s+updateRules\s*\([^)]*\)\s*:\s*array\s*\{.*?return\s*\[/s',
             $content,
             $match,
             PREG_OFFSET_CAPTURE
@@ -187,9 +194,13 @@ class ModelRevamper extends ModelGenerator
             return $content;
         }
 
+        $isConeectionDefault = $connection && $connection != config('database.default') ? true : false;
+
+        $updateRulesMap = ValidationRuleBuilder::build($columns, $table, $isConeectionDefault ? $connection : null, "\$id");
+
         // buildRules() returns "\n            'col' => [...],\n        "
         // which already contains the correct trailing indent before "]"
-        $newRules = $this->buildRules($columns, true);
+        $newRules = $this->buildRules($updateRulesMap);
 
         return substr($content, 0, $openBracketPos + 1)
             . $newRules

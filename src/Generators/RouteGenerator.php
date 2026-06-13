@@ -116,7 +116,7 @@ Route::get('/{$slug}/{id}',          [{$controllerName}::class, 'show']);
 Route::post('/{$slug}',              [{$controllerName}::class, 'store']);
 Route::patch('/{$slug}/{id}',        [{$controllerName}::class, 'update']);
 Route::delete('/{$slug}/{id}',       [{$controllerName}::class, 'destroy']);
-Route::post('/{$slug}_datatable',    [{$controllerName}::class, 'datatable']);
+Route::post('/{$slug}_datatables',    [{$controllerName}::class, 'datatables']);
 
 PHP;
     }

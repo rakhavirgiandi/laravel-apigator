@@ -78,7 +78,7 @@ class GenerateApiCommand extends Command
             ?? config('apigator.service_directory', 'Services');
 
         if ($table === 'all') {
-            return $this->generateAll($connection, $controllerDir, $modelDir, $generateTargets);
+            return $this->generateAll($connection, $controllerDir, $modelDir, $serviceDir, $generateTargets);
         }
 
         return $this->generateForTable($table, $connection, $controllerDir, $modelDir, $serviceDir, $generateTargets);
@@ -198,6 +198,7 @@ class GenerateApiCommand extends Command
         string $connection,
         string $controllerDir,
         string $modelDir,
+        string $serviceDir,
         array  $generateTargets
     ): int {
         $excludedTables = config('apigator.exclude_tables', []);
@@ -219,7 +220,7 @@ class GenerateApiCommand extends Command
             }
 
             $result = $this->generateForTable(
-                $table, $connection, $controllerDir, $modelDir, $generateTargets, quiet: true
+                $table, $connection, $controllerDir, $modelDir, $serviceDir, $generateTargets, quiet: true
             );
 
             if ($result === self::SUCCESS) {

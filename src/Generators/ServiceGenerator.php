@@ -16,7 +16,6 @@ class ServiceGenerator
         $modelName        = $context['modelName'];
         $modelDir         = $context['modelDir'];
         $force            = $context['force'];
-        $connection       = $context['connection'];
 
         $namespace = $this->dirToNamespace($serviceDir);
         $path      = app_path(trim($serviceDir, '/') . "/{$serviceName}.php");
@@ -37,9 +36,7 @@ class ServiceGenerator
 
         $this->ensureDirectory(dirname($path));
 
-        $connectionName = $connection && $connection != config('database.default');
-
-        $stub = $this->buildStub($serviceName, $namespace, $modelName, $modelNamespace, $connectionName);
+        $stub = $this->buildStub($serviceName, $namespace, $modelName, $modelNamespace);
         file_put_contents($path, $stub);
 
     }
@@ -48,11 +45,8 @@ class ServiceGenerator
         string $serviceName,
         string $namespace,
         string $modelName,
-        string $modelNamespace,
-        string $dbConnectionName = ''
+        string $modelNamespace
     ): string {
-
-        $dbConnection = $dbConnectionName ? "DB::connection({$dbConnectionName})->" : 'DB::';
 
         return <<<PHP
         <?php
@@ -66,9 +60,18 @@ class ServiceGenerator
         use Illuminate\Support\Facades\Schema;
         use Illuminate\Support\Facades\DB;
         use Illuminate\Support\Facades\Validator;
+        use Virgiandi\Apigator\Traits\ApiServiceTrait;
 
         class {$serviceName}
         {   
+
+            use ApiServiceTrait;
+
+            protected static function modelClass(): string
+            {
+                return {$modelName}::class;
+            }
+
             /**
              * Mix this into any generated (or custom) Eloquent model to enable:
              *  - getList()       → paginated list with dynamic filters
@@ -76,7 +79,7 @@ class ServiceGenerator
              *  - createRecord()  → validated create
              *  - updateRecord()  → validated patch
              *  - deleteRecord()  → soft-delete aware delete
-             *  - getDatatable()  → server-side DataTables response
+             *  - getDatatables()  → server-side DataTables response
              *
              */
         
@@ -122,21 +125,22 @@ class ServiceGenerator
              * @param  array \$params  DataTables POST parameters + custom user params
              * @return array
              */
-            public static function getDatatable(array \$params = []): array
+            public static function getDatatables(array \$params = []): array
             {
                 \$draw    = (int) (\$params['draw'] ?? 1);
                 \$start   = (int) (\$params['start'] ?? 0);
                 \$length  = (int) (\$params['length'] ?? 10);
                 \$length  = max(1, min(\$length, 1000));
+                \$data    = !empty(\$params['data']) ? \$params['data'] : [];
 
                 // Count total before filters
                 \$baseQuery = {$modelName}::buildBaseQuery([]);
                 \$recordsTotal = (clone \$baseQuery)->count();
 
                 // Apply DataTables search / column filters
-                \$filteredQuery = {$modelName}::buildBaseQuery(\$params);
-                {$modelName}::applyDatatableSearch(\$filteredQuery, \$params);
-                {$modelName}::applyDatatableOrder(\$filteredQuery, \$params);
+                \$filteredQuery = {$modelName}::buildBaseQuery(\$data);
+                {$modelName}::applyDatatablesSearch(\$filteredQuery, \$params);
+                {$modelName}::applyDatatablesOrder(\$filteredQuery, \$params);
 
                 \$recordsFiltered = (clone \$filteredQuery)->count();
 
@@ -165,18 +169,21 @@ class ServiceGenerator
             {
                 \$query = {$modelName}::buildBaseQuery(\$params);
 
-                \$column = \$params['column'] ?? 'id';
+                \$columnParams = \$params['column'] ?? 'id';
 
                 // Validate column exists to prevent injection
-                \$allowedColumns = Schema::getColumnListing((new {$modelName})->getTable());
-                if (!in_array(\$column, \$allowedColumns, true)) {
+                \$columns = {$modelName}::getColumnMapSchemaByAlias(\$params);
+
+                if (empty(\$columns[\$columnParams])) {
                     throw new ApigatorValidationException(
-                        message:   "Column {\$column} does not exist.",
+                        message:   "Column {\$columnParams} does not exist.",
                         errorCode: 'COLUMN_NOT_FOUND'
                     );
                 }
+                    
+                \$column = \$columns[\$columnParams];
 
-                \$data = \$query->where((new {$modelName})->getTable() . ".{\$column}", \$id)->first();
+                \$data = \$query->where(\$column, \$id)->first();
                 
                 if (!\$data) {
                     throw ApigatorException::notFound(
@@ -206,18 +213,18 @@ class ServiceGenerator
                     throw ApigatorValidationException::fromValidator(\$validator);
                 }
 
-                {$dbConnection}beginTransaction();
+                self::db()->beginTransaction();
 
                 try {
 
                     \$new_record = {$modelName}::create(\$validator->validated());
 
-                    {$dbConnection}commit();
+                    self::db()->commit();
                     
                     return self::getById(\$new_record->id);
 
                 } catch (\Throwable \$e) {
-                    {$dbConnection}rollBack();
+                    self::db()->rollBack();
 
                     if (\$e instanceof ApigatorException) {
                         throw \$e;
@@ -240,7 +247,7 @@ class ServiceGenerator
              */
             public static function updateRecord(mixed \$id, array \$params): ?{$modelName}
             {   
-                \$validator = Validator::make(\$params, {$modelName}::createRules());
+                \$validator = Validator::make(\$params, {$modelName}::updateRules(\$id));
 
                 if (\$validator->fails()) {
                     throw ApigatorValidationException::fromValidator(\$validator);
@@ -255,18 +262,18 @@ class ServiceGenerator
                     );
                 }
 
-                {$dbConnection}beginTransaction();
+                self::db()->beginTransaction();
 
                 try {
 
                     \$record->fill(\$params)->save();
 
-                    {$dbConnection}commit();
+                    self::db()->commit();
                     
                     return self::getById(\$record->id);
 
                 } catch (\Throwable \$e) {
-                    {$dbConnection}rollBack();
+                    self::db()->rollBack();
 
                     if (\$e instanceof ApigatorException) {
                         throw \$e;

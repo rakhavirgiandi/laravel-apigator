@@ -17,7 +17,7 @@ trait ApiModelTrait
     // -------------------------------------------------------------------------
 
     /**
-     * Build the base query, applying mapSchema (if defined) and dynamic filters.
+     * Build the base query, applying mapSchema and dynamic filters.
      */
     protected static function buildBaseQuery(array $params = []): Builder
     {
@@ -25,30 +25,27 @@ trait ApiModelTrait
         $instance = new static;
         $query    = $instance->newQuery();
 
-        // If model defines mapSchema(), use it
-        if (method_exists(static::class, 'mapSchema')) {
-            $schema  = static::mapSchema($params);
-            $fields  = $schema['field'] ?? [];
+        $schema  = static::mapSchema($params);
+        $fields  = $schema['field'] ?? [];
 
-            // Apply joins + static wheres
-            SchemaQueryBuilder::build($query, $schema);
+        // Apply joins + static wheres
+        SchemaQueryBuilder::build($query, $schema);
 
-            // Apply custom selects
-            if (!empty($fields)) {
-                $selects = SchemaQueryBuilder::buildSelectsCompat($fields);
-                $query->select($selects);
+        // Apply custom selects
+        if (!empty($fields)) {
+            if (!empty($params['select'])) {
+                $selectKeys = array_map('trim', explode(',', $params['select']));
+                $fields = array_intersect_key($fields, array_flip($selectKeys));
             }
 
-            $allowedColumns = SchemaQueryBuilder::getAllowedColumns($fields);
-            $searchable     = SchemaQueryBuilder::getSearchableColumns($fields);
-        } else {
-            // Default: all table columns
-            $allowedColumns = Schema::getColumnListing($instance->getTable());
-            $searchable     = $allowedColumns;
+            $selects = SchemaQueryBuilder::buildSelectsCompat($fields);
+            $query->select($selects);
         }
 
+        $searchable = SchemaQueryBuilder::getSearchableColumns($fields);
+
         // Apply dynamic filters from params
-        DynamicQueryParser::apply($query, $params, $allowedColumns, $searchable);
+        DynamicQueryParser::apply($query, $params, static::getColumnMapSchemaByAlias($params), $searchable);
 
         // Apply eager loading from ?with=relation1,relation2,relation1.nested
         static::applyEagerLoads($query, $instance, $params['with'] ?? null);
@@ -143,7 +140,7 @@ trait ApiModelTrait
     /**
      * Apply DataTables global search across all searchable columns.
      */
-    protected static function applyDatatableSearch(Builder $query, array $params): void
+    protected static function applyDatatablesSearch(Builder $query, array $params): void
     {
         $searchValue = $params['search']['value'] ?? '';
 
@@ -152,7 +149,7 @@ trait ApiModelTrait
         }
 
         // Get searchable columns from schema or table
-        $searchable = self::getDatatableSearchableColumns($params);
+        $searchable = self::getDatatablesSearchableColumns($params);
         if (empty($searchable)) {
             return;
         }
@@ -187,7 +184,7 @@ trait ApiModelTrait
     /**
      * Apply DataTables ORDER BY.
      */
-    protected static function applyDatatableOrder(Builder $query, array $params): void
+    protected static function applyDatatablesOrder(Builder $query, array $params): void
     {
         $orders  = $params['order'] ?? [];
         $columns = $params['columns'] ?? [];
@@ -240,7 +237,7 @@ trait ApiModelTrait
     /**
      * Get columns eligible for DataTables search.
      */
-    protected static function getDatatableSearchableColumns(array $params): array
+    protected static function getDatatablesSearchableColumns(array $params): array
     {
         $columns = $params['columns'] ?? [];
         $result  = [];
@@ -267,5 +264,18 @@ trait ApiModelTrait
         }
 
         return $result ?: $schema_column;
+    }
+
+    public static function getColumnMapSchemaByAlias (array $params = []): array {
+        $schema = static::mapSchema($params);
+
+        $data = collect($schema["field"])->mapWithKeys(function ($item, $alias) {
+            return [
+                $alias => $item['column']
+            ];
+
+        })->toArray();
+
+        return $data;
     }
 }
