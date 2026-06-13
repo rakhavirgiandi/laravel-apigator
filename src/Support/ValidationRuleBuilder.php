@@ -33,20 +33,19 @@ class ValidationRuleBuilder
      * Build validation rules array for a given set of columns.
      *
      * @param  array       $columns      Column info from Schema::getColumns()
-     * @param  bool        $isUpdate     If true, make all rules optional (for PATCH)
      * @param  string|null $table        Table name for unique() rules (null = skip unique)
-     * @param  int|float|string|null    $ignoreParams     Params to ignore in unique checks (for update routes)
      * @return array<string, array>
      */
     public static function build(
         array $columns,
-        bool $isUpdate = false,
-        ?string $table = null,
-        int|float|string|null $ignoreParams = null
+        string $table = null,
+        ?string $connection,
+        int|string|null $param = null,
     ): array {
         $rules = [];
 
-        $uniqueColumns = ($table !== null) ? self::getUniqueColumns($table) : [];
+        $uniqueColumns = ($table !== null) ? self::getUniqueColumns($table, $connection) : [];
+        $columnLengths = ($table !== null) ? self::getColumnLengths($table, $connection) : [];
 
         foreach ($columns as $col) {
             $name = $col['name'] ?? '';
@@ -55,11 +54,16 @@ class ValidationRuleBuilder
                 continue;
             }
 
+            // Enrich length if Schema didn't provide it
+            if (($col['length'] ?? null) === null && isset($columnLengths[$name])) {
+                $col['length'] = $columnLengths[$name]; // ← add
+            }
+
             if (!isset($col['unique']) && in_array($name, $uniqueColumns, true)) {
                 $col['unique'] = true;
             }
 
-            $rule = self::buildRule($col, $isUpdate, $table, $ignoreParams);
+            $rule = self::buildRule($col, $table, $param);
 
             if (!empty($rule)) {
                 $rules[$name] = $rule;
@@ -74,9 +78,9 @@ class ValidationRuleBuilder
      */
     protected static function buildRule(
         array $col,
-        bool $isUpdate,
-        ?string $table,
-        int|float|string $ignoreParams = null
+        string $table,
+        int|string|null $param = null
+        
     ): array {
         $name     = $col['name'] ?? '';
         $type     = strtolower($col['type'] ?? 'string');
@@ -86,6 +90,8 @@ class ValidationRuleBuilder
         $values   = $col['values'] ?? [];
         $unique   = $col['unique'] ?? false;
         $rule     = [];
+
+        $isUpdate = $param ? true : null;
 
         // ── 1. Presence rule ──────────────────────────────────────────────
         if ($isUpdate) {
@@ -106,7 +112,7 @@ class ValidationRuleBuilder
         }
 
         // ── 3. Name heuristics (run first to detect type overrides) ──────
-        [$nameRules, $typeOverride] = self::nameToRule($name, $table, $ignoreParams);
+        [$nameRules, $typeOverride] = self::nameToRule($name, $length, $table, $param);
 
         // ── 4. Type-based rules (skip if name fully overrides the type) ──
         if (!$typeOverride) {
@@ -127,8 +133,8 @@ class ValidationRuleBuilder
         // rule is already present (e.g. from nameToRule() for email/slug/username).
         if ($unique && $table !== null && !self::hasUniqueRule($rule)) {
             $uniqueRule = Rule::unique($table, $name);
-            if ($ignoreParams !== null) {
-                $uniqueRule = $uniqueRule->ignore($ignoreParams);
+            if ($param !== null) {
+                $uniqueRule = $uniqueRule->ignore($param);
             }
             $rule[] = $uniqueRule;
         }
@@ -136,32 +142,57 @@ class ValidationRuleBuilder
         return $rule;
     }
 
-    /**
- * Resolve unique column names from single-column unique indexes.
- * Skips composite unique indexes (multi-column) as they can't map to a single field rule.
- *
- * @param  string $table
- * @return string[]
- */
-protected static function getUniqueColumns(string $table): array
-{
-    $uniqueColumns = [];
+        /**
+     * Resolve unique column names from single-column unique indexes.
+     * Skips composite unique indexes (multi-column) as they can't map to a single field rule.
+     *
+     * @param  string $table
+     * @return string[]
+     */
+    protected static function getUniqueColumns(string $table, ?string $connection = null): array
+    {
+        $uniqueColumns = [];
 
-    try {
-        $indexes = \Illuminate\Support\Facades\Schema::getIndexes($table);
+        try {
+            $schema  = $connection
+                ? \Illuminate\Support\Facades\Schema::connection($connection)
+                : \Illuminate\Support\Facades\Schema::getFacadeRoot();
 
-        foreach ($indexes as $index) {
-            // Only single-column unique indexes are mappable to a per-field rule
-            if (!empty($index['unique']) && count($index['columns']) === 1) {
-                $uniqueColumns[] = $index['columns'][0];
+            $indexes = $schema->getIndexes($table);
+
+            foreach ($indexes as $index) {
+                if (!empty($index['unique']) && count($index['columns']) === 1) {
+                    $uniqueColumns[] = $index['columns'][0];
+                }
             }
-        }
-    } catch (\Throwable $e) {
-        // Silently ignore if driver doesn't support getIndexes()
+        } catch (\Throwable $e) {}
+
+        return $uniqueColumns;
     }
 
-    return $uniqueColumns;
-}
+    protected static function getColumnLengths(string $table, ?string $connection = null): array
+    {
+        $lengths = [];
+
+        try {
+            $db   = $connection
+                ? \Illuminate\Support\Facades\DB::connection($connection)
+                : \Illuminate\Support\Facades\DB::getFacadeRoot();
+
+            $rows = $db->select("
+                SELECT column_name, character_maximum_length
+                FROM information_schema.columns
+                WHERE table_name = ?
+                  AND character_maximum_length IS NOT NULL
+            ", [$table]);
+
+            foreach ($rows as $row) {
+                $lengths[$row->column_name] = (int) $row->character_maximum_length;
+            }
+        } catch (\Throwable $e) {}
+
+        return $lengths;
+    }
 
     /**
      * Check whether a rule array already contains a unique rule.
@@ -349,6 +380,8 @@ protected static function getUniqueColumns(string $table): array
                     $rules[] = 'max:16777215';
                 } elseif (preg_match('/\blongtext\b/', $type)) {
                     $rules[] = 'max:4294967295';
+                } elseif (preg_match('/\btext\b/', $type)) {  // ← ADD THIS
+                    $rules[] = 'max:65535';
                 }
                 // plain text / ntext / varchar(max) → no artificial cap
             }
@@ -377,49 +410,56 @@ protected static function getUniqueColumns(string $table): array
      *
      * @param  string      $name
      * @param  string|null $table
-     * @param  int|float|string|null    $ignoreParams
+     * @param  int|string|null    $param
      * @return array{array, bool}
      */
-    protected static function nameToRule(string $name, ?string $table, int|float|string|null $ignoreParams): array
+    protected static function nameToRule(string $name, int|float|null $length = null, string $table, int|string|null $param): array
     {
         $rules = [];
         $lower = strtolower($name);
 
         // ── Email → overrides 'string' with specific format rule ─────────
         if ($lower == 'email') {
+            $maxLength = $length ? $length : '225';
             $rules[] = 'string';
             $rules[] = 'email:rfc,dns';
+            $rules[] = 'max:'.$maxLength;
             if ($table) {
                 $unique = Rule::unique($table, $name);
-                if ($ignoreParams !== null) $unique = $unique->ignore($ignoreParams);
+                if ($param !== null) $unique = $unique->ignore($param);
                 $rules[] = $unique;
             }
             return [$rules, true];
         }
 
         // ── URL ───────────────────────────────────────────────────────────
-        if (preg_match('/\b(url|link|website|webpage|endpoint)\b/', $lower)) {
-            return [['string', 'url'], true];
+        if (preg_match('/\b(url)\b/', $lower)) {
+            $maxLength = $length ? $length : '225';
+            return [['string', 'url', 'max:'.$maxLength], true];
         }
 
         // ── UUID column name ──────────────────────────────────────────────
         if (preg_match('/\b(uuid|guid)\b/', $lower)) {
-            return [['string', 'uuid'], true];
+             $maxLength = $length ? $length : '36';
+            return [['string', 'uuid', 'max:'.$maxLength], true];
         }
 
         // ── IP address ────────────────────────────────────────────────────
         if (preg_match('/\b(ip_address|ip_addr|ipaddress)\b/', $lower)) {
-            return [['string', 'ip'], true];
+            $maxLength = $length ? $length : '225';
+            return [['string', 'ip', 'max:'.$maxLength], true];
         }
 
         // ── Phone / mobile ────────────────────────────────────────────────
-        if (preg_match('/\b(phone|mobile|telephone|handphone|hp|telp|telepon)\b/', $lower)) {
-            return [['string', 'regex:/^\+?[0-9\s\-().]{7,20}$/'], true];
+        if (preg_match('/\b(phone|telephone|handphone|hp)\b/', $lower)) {
+            $maxLength = $length ? $length : '225';
+            return [['string', 'regex:/^\+?[0-9\s\-().]{7,20}$/', 'max:'.$maxLength], true];
         }
 
         // ── Password ──────────────────────────────────────────────────────
         if ($lower === 'password') {
-            return [['string', 'min:8'], true];
+            $maxLength = $length ? $length : '225';
+            return [['string', 'min:8', 'max:'.$maxLength], true];
         }
 
         // ── Password confirmation ─────────────────────────────────────────
@@ -430,20 +470,23 @@ protected static function getUniqueColumns(string $table): array
         // ── Slug ──────────────────────────────────────────────────────────
         if ($lower === 'slug' || str_ends_with($lower, '_slug')) {
             $r = ['string', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/'];
+            $maxLength = $length ? $length : '225';
             if ($table) {
                 $unique = Rule::unique($table, $name);
-                if ($ignoreParams !== null) $unique = $unique->ignore($ignoreParams);
+                if ($param !== null) $unique = $unique->ignore($param);
                 $r[] = $unique;
             }
+            $r[] = 'max:'.$maxLength;
             return [$r, true];
         }
 
         // ── Username ──────────────────────────────────────────────────────
         if (preg_match('/\b(username|user_name)\b/', $lower)) {
-            $r = ['string', 'min:3', 'max:30', 'regex:/^[a-zA-Z0-9_.-]+$/'];
+            $maxLength = $length ? $length : '225';
+            $r = ['string', 'min:3', 'max:'.$maxLength, 'regex:/^[a-zA-Z0-9_.-]+$/'];
             if ($table) {
                 $unique = Rule::unique($table, $name);
-                if ($ignoreParams !== null) $unique = $unique->ignore($ignoreParams);
+                if ($param !== null) $unique = $unique->ignore($param);
                 $r[] = $unique;
             }
             return [$r, true];
@@ -464,21 +507,6 @@ protected static function getUniqueColumns(string $table): array
         // Longitude
         if (preg_match('/\b(lng|lon|long|longitude)\b/', $lower)) {
             return [['between:-180,180'], false];
-        }
-
-        // Positive amounts / prices / quantities
-        if (preg_match('/\b(price|amount|qty|quantity|total|subtotal|discount|tax|weight|height|width|length|size|rating|score)\b/', $lower)) {
-            return [['min:0'], false];
-        }
-
-        // Age
-        if ($lower === 'age') {
-            return [['min:0', 'max:150'], false];
-        }
-
-        // Foreign keys → positive integer, skip generic integer max
-        if (str_ends_with($lower, '_id')) {
-            return [['min:1'], false];
         }
 
         return [[], false];
@@ -547,11 +575,11 @@ protected static function getUniqueColumns(string $table): array
         $code = "Rule::unique('{$table}', '{$column}')";
 
         if ($ignore !== null) {
-            $ignoreParams  = is_array($ignore) ? $ignore[0] : $ignore;
+            $param  = is_array($ignore) ? $ignore[0] : $ignore;
             $ignoreColumn  = is_array($ignore) ? ($ignore[1] ?? 'id') : 'id';
             $code .= $ignoreColumn === 'id'
-                ? "->ignore({$ignoreParams})"
-                : "->ignore({$ignoreParams}, '{$ignoreColumn}')";
+                ? "->ignore({$param})"
+                : "->ignore({$param}, '{$ignoreColumn}')";
         }
 
         return $code;
